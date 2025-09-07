@@ -1,41 +1,117 @@
 <!DOCTYPE html>
 <html lang="en-us">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Unity Web Player | Slap Club</title>
-  </head>
-  <body style="text-align: center; padding: 0; border: 0; margin: 0;">
-    <canvas id="unity-canvas" width=1920 height=1080 tabindex="-1" style="width: 1920px; height: 1080px; background: #231F20"></canvas>
-    <script src="Build/SC.loader.js"></script>
-    <script>
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        // Mobile device style: fill the whole browser client area with the game canvas:
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
-        document.getElementsByTagName('head')[0].appendChild(meta);
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Unity Web Player | Slap Club</title>
 
-        var canvas = document.querySelector("#unity-canvas");
-        canvas.style.width = "100%";
-        canvas.style.height = "100%";
-        canvas.style.position = "fixed";
+  <!-- 🔥 Важно: viewport для адаптивности на мобильных -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-        document.body.style.textAlign = "left";
-      }
+  <style>
+    /* Сброс стилей и полноэкранный режим */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #231F20; /* фон как у канваса */
+      text-align: center; /* центрируем по умолчанию */
+    }
 
-      createUnityInstance(document.querySelector("#unity-canvas"), {
-        arguments: [],
-        dataUrl: "Build/SC.data",
-        frameworkUrl: "Build/SC.framework.js",
-        codeUrl: "Build/SC.wasm",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "aaaaa",
-        productName: "Slap Club",
-        productVersion: "1.0",
-        // matchWebGLToCanvasSize: false, // Uncomment this to separately control WebGL canvas render size and DOM element size.
-        // devicePixelRatio: 1, // Uncomment this to override low DPI rendering on high DPI displays.
-      });
-    </script>
-  </body>
+    /* Контейнер Unity — на весь экран */
+    #unity-container {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Канвас Unity — будет масштабироваться скриптом */
+    #unity-canvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+      display: block;
+      outline: none;
+      background: #231F20;
+    }
+  </style>
+</head>
+<body>
+<!-- Обернём канвас в контейнер для удобства управления -->
+<div id="unity-container">
+  <canvas id="unity-canvas" tabindex="-1"></canvas>
+</div>
+
+<script src="Build/SC.loader.js"></script>
+<script>
+  // 🎮 Создаём экземпляр Unity
+  createUnityInstance(document.querySelector("#unity-canvas"), {
+    arguments: [],
+    dataUrl: "Build/SC.data",
+    frameworkUrl: "Build/SC.framework.js",
+    codeUrl: "Build/SC.wasm",
+    streamingAssetsUrl: "StreamingAssets",
+    companyName: "aaaaa",
+    productName: "Slap Club",
+    productVersion: "1.0",
+    // matchWebGLToCanvasSize: false, // Можно раскомментировать, если хочешь контролировать рендер отдельно
+    // devicePixelRatio: 1, // Раскомментировать для низкого DPI на ретина-дисплеях (если игра тормозит)
+  });
+
+  // 📱 Соотношение сторон игры — ЗАМЕНИ, если у тебя не 16:9!
+  const gameAspect = 1920 / 1080; // 16:9
+
+  function resizeGame() {
+    const container = document.getElementById("unity-container");
+    const canvas = document.getElementById("unity-canvas");
+
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    const windowAspect = windowWidth / windowHeight;
+
+    let targetWidth, targetHeight;
+
+    // Определяем, как масштабировать — по ширине или по высоте
+    if (windowAspect > gameAspect) {
+      // Экран шире — масштабируем по высоте, добавляем чёрные полосы по бокам
+      targetHeight = windowHeight;
+      targetWidth = targetHeight * gameAspect;
+    } else {
+      // Экран уже — масштабируем по ширине, полосы сверху/снизу
+      targetWidth = windowWidth;
+      targetHeight = targetWidth / gameAspect;
+    }
+
+    // Применяем размер и центрируем
+    canvas.style.width = targetWidth + "px";
+    canvas.style.height = targetHeight + "px";
+    canvas.style.left = (windowWidth - targetWidth) / 2 + "px";
+    canvas.style.top = (windowHeight - targetHeight) / 2 + "px";
+  }
+
+  // 🔄 Обработчики событий
+  window.addEventListener("resize", resizeGame);
+  window.addEventListener("load", resizeGame);
+
+  // 📱 Fullscreen по первому касанию (iOS Safari требует жеста)
+  function enterFullscreen() {
+    const container = document.getElementById("unity-container");
+    if (container.requestFullscreen) {
+      container.requestFullscreen();
+    } else if (container.webkitRequestFullscreen) {
+      container.webkitRequestFullscreen(); // Safari
+    } else if (container.msRequestFullscreen) {
+      container.msRequestFullscreen(); // IE (на всякий случай)
+    }
+  }
+
+  // 👆 Запросить fullscreen при первом касании или клике
+  document.addEventListener("touchstart", enterFullscreen, { once: true });
+  document.addEventListener("click", enterFullscreen, { once: true });
+</script>
+</body>
 </html>
