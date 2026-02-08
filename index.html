@@ -1,92 +1,125 @@
 <!DOCTYPE html>
 <html lang="en-us">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Slap Club</title>
-    <link rel="shortcut icon" href="TemplateData/favicon.ico">
-    <link rel="stylesheet" href="TemplateData/style.css">
-  </head>
-  <body class="dark">
-    <div id="unity-container" class="unity-desktop">
-      <canvas id="unity-canvas"></canvas>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+  <!-- Блокировка вертикальной ориентации -->
+  <meta name="screen-orientation" content="landscape">
+  <meta name="x5-orientation" content="landscape">
+  <meta name="x5-fullscreen" content="true">
+  <meta name="full-screen" content="yes">
+
+  <title>Slap Club</title>
+  <link rel="shortcut icon" href="TemplateData/favicon.ico">
+  <link rel="stylesheet" href="TemplateData/style.css">
+</head>
+<body class="dark">
+<div id="unity-container" class="unity-desktop">
+  <canvas id="unity-canvas" width="1920" height="1080"></canvas>
+</div>
+<div id="loading-cover" style="display:none;">
+  <div id="unity-loading-bar">
+    <div id="unity-logo"><img src="logo.png"></div>
+    <div id="unity-progress-bar-empty" style="display: none;">
+      <div id="unity-progress-bar-full"></div>
     </div>
-    <div id="loading-cover" style="display:none;">
-      <div id="unity-loading-bar">
-        <div id="unity-logo"><img src="logo.png"></div>
-        <div id="unity-progress-bar-empty" style="display: none;">
-          <div id="unity-progress-bar-full"></div>
-        </div>
-        <div class="spinner"></div>
-      </div>
-    </div>
-    <div id="unity-fullscreen-button" style="display: none;"></div>
-    <script>
-      const hideFullScreenButton = "";
-      const buildUrl = "Build";
-      const loaderUrl = buildUrl + "/SC.loader.js";
-      const config = {
-        dataUrl: buildUrl + "/SC.data.unityweb",
-        frameworkUrl: buildUrl + "/SC.framework.js.unityweb",
-        codeUrl: buildUrl + "/SC.wasm.unityweb",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "aaaaa",
-        productName: "Slap Club",
-        productVersion: "1.0",
-      };
+    <div class="spinner"></div>
+  </div>
+</div>
+<div id="unity-fullscreen-button" style="display: none;"></div>
 
-      const container = document.querySelector("#unity-container");
-      const canvas = document.querySelector("#unity-canvas");
-      const loadingCover = document.querySelector("#loading-cover");
-      const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
-      const progressBarFull = document.querySelector("#unity-progress-bar-full");
-      const fullscreenButton = document.querySelector("#unity-fullscreen-button");
-      const spinner = document.querySelector('.spinner');
+<!-- Оверлей предупреждения об ориентации -->
+<div id="orientation-warning" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#000;color:white;display:none;flex-direction:column;justify-content:center;align-items:center;text-align:center;z-index:99999;font-family:Arial,sans-serif;padding:20px;">
+  <div style="font-size:80px;margin-bottom:20px;">🔄</div>
+  <h2 style="font-size:28px;margin-bottom:15px;">Please rotate your device</h2>
+  <p style="font-size:18px;max-width:400px;">This game requires landscape orientation (horizontal).</p>
+</div>
 
-      const canFullscreen = (function() {
-        for (const key of [
-            'exitFullscreen',
-            'webkitExitFullscreen',
-            'webkitCancelFullScreen',
-            'mozCancelFullScreen',
-            'msExitFullscreen',
-          ]) {
-          if (key in document) {
-            return true;
-          }
-        }
-        return false;
-      }());
+<script>
+  // Проверка ориентации
+  function checkOrientation() {
+    const isLandscape = window.innerWidth > window.innerHeight;
+    document.getElementById('orientation-warning').style.display = isLandscape ? 'none' : 'flex';
+  }
 
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        container.className = "unity-mobile";
-        config.devicePixelRatio = 1;
+  // Слушаем изменения ориентации
+  window.addEventListener('resize', checkOrientation);
+  window.addEventListener('orientationchange', checkOrientation);
+
+  const hideFullScreenButton = "";
+  const buildUrl = "Build";
+  const loaderUrl = buildUrl + "/SC.loader.js";
+  const config = {
+    dataUrl: buildUrl + "/SC.data.unityweb",
+    frameworkUrl: buildUrl + "/SC.framework.js.unityweb",
+    codeUrl: buildUrl + "/SC.wasm.unityweb",
+    streamingAssetsUrl: "StreamingAssets",
+    companyName: "aaaaa",
+    productName: "Slap Club",
+    productVersion: "1.0",
+  };
+
+  const container = document.querySelector("#unity-container");
+  const canvas = document.querySelector("#unity-canvas");
+  const loadingCover = document.querySelector("#loading-cover");
+  const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
+  const progressBarFull = document.querySelector("#unity-progress-bar-full");
+  const fullscreenButton = document.querySelector("#unity-fullscreen-button");
+  const spinner = document.querySelector('.spinner');
+
+  const canFullscreen = (function() {
+    for (const key of [
+      'exitFullscreen',
+      'webkitExitFullscreen',
+      'webkitCancelFullScreen',
+      'mozCancelFullScreen',
+      'msExitFullscreen',
+    ]) {
+      if (key in document) {
+        return true;
       }
-      loadingCover.style.display = "";
+    }
+    return false;
+  }());
 
-      const script = document.createElement("script");
-      script.src = loaderUrl;
-      script.onload = () => {
-        createUnityInstance(canvas, config, (progress) => {
-          spinner.style.display = "none";
-          progressBarEmpty.style.display = "";
-          progressBarFull.style.width = `${100 * progress}%`;
-        }).then((unityInstance) => {
-          loadingCover.style.display = "none";
-          if (canFullscreen) {
-            if (!hideFullScreenButton) {
-              fullscreenButton.style.display = "";
-            }
-            fullscreenButton.onclick = () => {
-              unityInstance.SetFullscreen(1);
-            };
-          }
-        }).catch((message) => {
-          alert(message);
-        });
-      };
-      document.body.appendChild(script);
-    </script>
-  </body>
+  if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    container.className = "unity-mobile";
+    config.devicePixelRatio = 1;
+  }
+
+  loadingCover.style.display = "";
+
+  const script = document.createElement("script");
+  script.src = loaderUrl;
+  script.onload = () => {
+    createUnityInstance(canvas, config, (progress) => {
+      spinner.style.display = "none";
+      progressBarEmpty.style.display = "";
+      progressBarFull.style.width = `${100 * progress}%`;
+    }).then((unityInstance) => {
+      loadingCover.style.display = "none";
+
+      // Автоматический фуллскрин при загрузке
+      unityInstance.SetFullscreen(1);
+
+      if (canFullscreen) {
+        if (!hideFullScreenButton) {
+          fullscreenButton.style.display = "";
+        }
+        fullscreenButton.onclick = () => {
+          unityInstance.SetFullscreen(1);
+        };
+      }
+    }).catch((message) => {
+      alert(message);
+    });
+  };
+  document.body.appendChild(script);
+
+  // Первичная проверка ориентации при загрузке
+  window.addEventListener('load', checkOrientation);
+</script>
+</body>
 </html>
