@@ -27,6 +27,7 @@
       overflow: hidden;
       width: 100vw;
       height: 100vh;
+      background-color: #000000; /* ← Чёрный фон */
     }
 
     #unity-container {
@@ -35,6 +36,12 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      background-color: #000000; /* ← Чёрный фон контейнера */
+    }
+
+    #unity-canvas {
+      background: #000000; /* ← Чёрный фон канвы */
+      display: block;
     }
   </style>
 </head>
@@ -138,7 +145,7 @@
 
   if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
     container.className = "unity-mobile";
-    config.devicePixelRatio = 1;
+    config.devicePixelRatio = window.devicePixelRatio;
   }
 
   loadingCover.style.display = "";
