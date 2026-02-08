@@ -16,6 +16,10 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 
+  <!-- Для полноэкранного режима на мобильных -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <title>Slap Club</title>
   <link rel="shortcut icon" href="TemplateData/favicon.ico">
   <link rel="stylesheet" href="TemplateData/style.css">
@@ -27,7 +31,7 @@
       overflow: hidden;
       width: 100vw;
       height: 100vh;
-      background-color: #000000; /* ← Чёрный фон */
+      background-color: #000000;
     }
 
     #unity-container {
@@ -36,11 +40,11 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      background-color: #000000; /* ← Чёрный фон контейнера */
+      background-color: #000000;
     }
 
     #unity-canvas {
-      background: #000000; /* ← Чёрный фон канвы */
+      background: #000000;
       display: block;
     }
   </style>
@@ -86,24 +90,42 @@
 
     if (!container || !canvas) return;
 
-    const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
+    // Используем полный размер окна браузера
+    const containerWidth = window.innerWidth;
+    const containerHeight = window.innerHeight;
     const containerAspect = containerWidth / containerHeight;
 
     let drawWidth, drawHeight;
 
     if (containerAspect > GAME_ASPECT) {
-      // Широкий контейнер → масштаб по высоте (чёрные полосы по бокам)
+      // Широкий экран → масштаб по высоте
       drawHeight = containerHeight;
       drawWidth = containerHeight * GAME_ASPECT;
     } else {
-      // Узкий/портретный → масштаб по ширине (чёрные полосы сверху/снизу)
+      // Узкий экран → масштаб по ширине
       drawWidth = containerWidth;
       drawHeight = containerWidth / GAME_ASPECT;
     }
 
     canvas.style.width = `${drawWidth}px`;
     canvas.style.height = `${drawHeight}px`;
+
+    // Центрируем канву
+    canvas.style.position = 'absolute';
+    canvas.style.left = '50%';
+    canvas.style.top = '50%';
+    canvas.style.transform = 'translate(-50%, -50%)';
+  }
+
+  // ============ ФУЛЛСКРИН ============
+  function tryEnterFullscreen() {
+    const elem = document.documentElement;
+
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen().catch(e => console.log("Fullscreen denied"));
+    } else if (elem.webkitRequestFullscreen) {
+      elem.webkitRequestFullscreen();
+    }
   }
 
   // ============ ИНИЦИАЛИЗАЦИЯ UNITY ============
@@ -163,8 +185,14 @@
       // Применяем размер 1920×1080
       resizeCanvas();
 
-      // Автоматический фуллскрин
-      unityInstance.SetFullscreen(1);
+      // Попытка автоматического фуллскрина
+      tryEnterFullscreen();
+
+      // Первый тап на канву — тоже пытаемся войти в фуллскрин
+      canvas.addEventListener('touchstart', function firstTouch() {
+        tryEnterFullscreen();
+        canvas.removeEventListener('touchstart', firstTouch);
+      }, { once: true });
 
       if (canFullscreen) {
         if (!hideFullScreenButton) {
@@ -172,6 +200,7 @@
         }
         fullscreenButton.onclick = () => {
           unityInstance.SetFullscreen(1);
+          tryEnterFullscreen();
         };
       }
     }).catch((message) => {
