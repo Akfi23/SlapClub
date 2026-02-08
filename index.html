@@ -11,13 +11,36 @@
   <meta name="x5-fullscreen" content="true">
   <meta name="full-screen" content="yes">
 
+  <!-- Запрет кэширования -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
   <title>Slap Club</title>
   <link rel="shortcut icon" href="TemplateData/favicon.ico">
   <link rel="stylesheet" href="TemplateData/style.css">
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #unity-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+  </style>
 </head>
 <body class="dark">
 <div id="unity-container" class="unity-desktop">
-  <canvas id="unity-canvas" width="1920" height="1080"></canvas>
+  <canvas id="unity-canvas" tabindex="-1"></canvas>
 </div>
 <div id="loading-cover" style="display:none;">
   <div id="unity-loading-bar">
@@ -38,16 +61,45 @@
 </div>
 
 <script>
-  // Проверка ориентации
+  // ============ ЛОГИКА ОРИЕНТАЦИИ ============
   function checkOrientation() {
     const isLandscape = window.innerWidth > window.innerHeight;
     document.getElementById('orientation-warning').style.display = isLandscape ? 'none' : 'flex';
   }
 
-  // Слушаем изменения ориентации
   window.addEventListener('resize', checkOrientation);
   window.addEventListener('orientationchange', checkOrientation);
 
+  // ============ ЛОГИКА РЕСАЙЗА 1920×1080 ============
+  const GAME_ASPECT = 1920 / 1080; // 16:9
+
+  function resizeCanvas() {
+    const container = document.getElementById("unity-container");
+    const canvas = document.getElementById("unity-canvas");
+
+    if (!container || !canvas) return;
+
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    const containerAspect = containerWidth / containerHeight;
+
+    let drawWidth, drawHeight;
+
+    if (containerAspect > GAME_ASPECT) {
+      // Широкий контейнер → масштаб по высоте (чёрные полосы по бокам)
+      drawHeight = containerHeight;
+      drawWidth = containerHeight * GAME_ASPECT;
+    } else {
+      // Узкий/портретный → масштаб по ширине (чёрные полосы сверху/снизу)
+      drawWidth = containerWidth;
+      drawHeight = containerWidth / GAME_ASPECT;
+    }
+
+    canvas.style.width = `${drawWidth}px`;
+    canvas.style.height = `${drawHeight}px`;
+  }
+
+  // ============ ИНИЦИАЛИЗАЦИЯ UNITY ============
   const hideFullScreenButton = "";
   const buildUrl = "Build";
   const loaderUrl = buildUrl + "/SC.loader.js";
@@ -101,7 +153,10 @@
     }).then((unityInstance) => {
       loadingCover.style.display = "none";
 
-      // Автоматический фуллскрин при загрузке
+      // Применяем размер 1920×1080
+      resizeCanvas();
+
+      // Автоматический фуллскрин
       unityInstance.SetFullscreen(1);
 
       if (canFullscreen) {
@@ -118,8 +173,14 @@
   };
   document.body.appendChild(script);
 
-  // Первичная проверка ориентации при загрузке
-  window.addEventListener('load', checkOrientation);
+  // Слушаем ресайз окна
+  window.addEventListener("resize", resizeCanvas);
+
+  // Первичная проверка ориентации и размера
+  window.addEventListener('load', () => {
+    checkOrientation();
+    resizeCanvas();
+  });
 </script>
 </body>
 </html>
