@@ -6,21 +6,6 @@
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
-  <!-- Блокировка вертикальной ориентации -->
-  <meta name="screen-orientation" content="landscape">
-  <meta name="x5-orientation" content="landscape">
-  <meta name="x5-fullscreen" content="true">
-  <meta name="full-screen" content="yes">
-
-  <!-- Запрет кэширования -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-
-  <!-- Для полноэкранного режима на мобильных -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
   <title>Slap Club</title>
   <link rel="shortcut icon" href="TemplateData/favicon.ico">
   <link rel="stylesheet" href="TemplateData/style.css">
@@ -55,6 +40,7 @@
   <div id="unity-container" class="unity-desktop">
     <canvas id="unity-canvas" tabindex="-1"></canvas>
   </div>
+
   <div id="loading-cover" style="display:none;">
     <div id="unity-loading-bar">
       <div id="unity-logo"><img src="logo.png"></div>
@@ -64,28 +50,10 @@
       <div class="spinner"></div>
     </div>
   </div>
-  //<div id="unity-fullscreen-button" style="display: none;"></div>
-
-  <!-- Оверлей предупреждения об ориентации -->
-  <div id="orientation-warning"
-    style="position:fixed;top:0;left:0;width:100%;height:100%;background:#000;color:white;display:none;flex-direction:column;justify-content:center;align-items:center;text-align:center;z-index:99999;font-family:Arial,sans-serif;padding:20px;">
-    <div style="font-size:80px;margin-bottom:20px;">🔄</div>
-    <h2 style="font-size:28px;margin-bottom:15px;">Please rotate your device</h2>
-    <p style="font-size:18px;max-width:400px;">This game requires landscape orientation (horizontal).</p>
-  </div>
 
   <script>
-    // ============ ЛОГИКА ОРИЕНТАЦИИ ============
-    function checkOrientation() {
-      const isLandscape = window.innerWidth > window.innerHeight;
-      document.getElementById('orientation-warning').style.display = isLandscape ? 'none' : 'flex';
-    }
-
-    window.addEventListener('resize', checkOrientation);
-    window.addEventListener('orientationchange', checkOrientation);
-
-    // ============ ЛОГИКА РЕСАЙЗА 1920×1080 ============
-    const GAME_ASPECT = 1920 / 1080; // 16:9
+    // ============ РЕСАЙЗ ПОД 1920x1080 (ВСЕГДА LANDSCAPE) ============
+    const GAME_ASPECT = 1920 / 1080;
 
     function resizeCanvas() {
       const container = document.getElementById("unity-container");
@@ -119,21 +87,10 @@
       }, 100);
     }
 
-    // ============ ФУЛЛСКРИН ============
-    function tryEnterFullscreen() {
-      const elem = document.documentElement;
-
-      if (elem.requestFullscreen) {
-        elem.requestFullscreen().catch(e => console.log("Fullscreen denied"));
-      } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen();
-      }
-    }
-
     // ============ ИНИЦИАЛИЗАЦИЯ UNITY ============
-    const hideFullScreenButton = "";
     const buildUrl = "Build";
     const loaderUrl = buildUrl + "/SC.loader.js";
+
     const config = {
       dataUrl: buildUrl + "/SC.data.unityweb",
       frameworkUrl: buildUrl + "/SC.framework.js.unityweb",
@@ -149,23 +106,7 @@
     const loadingCover = document.querySelector("#loading-cover");
     const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
     const progressBarFull = document.querySelector("#unity-progress-bar-full");
-    //const fullscreenButton = document.querySelector("#unity-fullscreen-button");
     const spinner = document.querySelector('.spinner');
-
-    const canFullscreen = (function () {
-      for (const key of [
-        'exitFullscreen',
-        'webkitExitFullscreen',
-        'webkitCancelFullScreen',
-        'mozCancelFullScreen',
-        'msExitFullscreen',
-      ]) {
-        if (key in document) {
-          return true;
-        }
-      }
-      return false;
-    }());
 
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
       container.className = "unity-mobile";
@@ -176,6 +117,7 @@
 
     const script = document.createElement("script");
     script.src = loaderUrl;
+
     script.onload = () => {
       createUnityInstance(canvas, config, (progress) => {
         spinner.style.display = "none";
@@ -184,44 +126,25 @@
       }).then((unityInstance) => {
         loadingCover.style.display = "none";
 
-        // Применяем размер 1920×1080
+        // применяем фиксированный 16:9
         resizeCanvas();
 
-        // Попытка автоматического фуллскрина
-        tryEnterFullscreen();
-
-        // Первый тап на канву — тоже пытаемся войти в фуллскрин
-        canvas.addEventListener('touchstart', function firstTouch() {
-          tryEnterFullscreen();
-          canvas.removeEventListener('touchstart', firstTouch);
-        }, { once: true });
-
-        // if (canFullscreen) {
-        //   if (!hideFullScreenButton) {
-        //     fullscreenButton.style.display = "";
-        //   }
-        //   fullscreenButton.onclick = () => {
-        //     unityInstance.SetFullscreen(1);
-        //     tryEnterFullscreen();
-        //   };
-        // }
       }).catch((message) => {
         alert(message);
       });
     };
+
     document.body.appendChild(script);
 
-    // Слушаем ресайз окна
+    // слушаем ресайз
     window.addEventListener("resize", resizeCanvas);
-    // Слушаем смену ориентации экрана
+
     window.addEventListener("orientationchange", () => {
       resizeCanvas();
       setTimeout(resizeCanvas, 500);
     });
 
-    // Первичная проверка ориентации и размера
     window.addEventListener('load', () => {
-      checkOrientation();
       resizeCanvas();
     });
   </script>
