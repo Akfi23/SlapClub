@@ -72,9 +72,9 @@ body {
 // ===== CONFIG =====
 const ASPECT = 1920 / 1080;
 let unityReady = false;
-let phase = "out";          // "out" → "hover" → "in" → "bounce" → "done"
+let phase = "out";        // out → hover → in → bounce
 let t = 0;
-let floatStrength = 0.6;
+let floatStrength = 0.5;
 
 // ===== ELEMENTS =====
 const cover = document.getElementById("loading-cover");
@@ -84,9 +84,9 @@ const logo = document.getElementById("logo");
 // ===== RESIZE =====
 function resizeCanvas() {
   const w = innerWidth, h = innerHeight;
-  let dw = w, dh = h;
-  if (w / h > ASPECT) dh = h, dw = h * ASPECT;
-  else dw = w, dh = w / ASPECT;
+  let dw, dh;
+  if (w / h > ASPECT) { dh = h; dw = h * ASPECT; }
+  else { dw = w; dh = w / ASPECT; }
 
   canvas.style.width = dw + "px";
   canvas.style.height = dh + "px";
@@ -107,8 +107,9 @@ for (let i = 0; i < COUNT; i++) {
   
   circles.push({
     el: el,
-    tx: 0, ty: 0,     // target position
-    cx: 0, cy: 0      // current position
+    tx: 0,
+    ty: 0,
+    offset: Math.random() * Math.PI * 2
   });
 }
 
@@ -118,16 +119,14 @@ function initCircles() {
     const radius = MIN_R + Math.random() * (MAX_R - MIN_R);
     c.tx = Math.cos(angle) * radius;
     c.ty = Math.sin(angle) * radius;
-    c.cx = 0;
-    c.cy = 0;
   }
 }
 
 // ===== EASING =====
 const easeOut = t => 1 - Math.pow(1 - t, 3);
-const easeIn = t => t * t * t;
+const easeIn  = t => t * t * t;
 
-// ===== MAIN LOOP =====
+// ===== LOOP =====
 let last = performance.now();
 
 function loop(now) {
@@ -137,31 +136,33 @@ function loop(now) {
 
   const globalTime = now * 0.002;
 
-  // Phase management
-  if (phase === "out" && t > 1.15) {
+  // === PHASE MANAGEMENT ===
+  if (phase === "out" && t > 1.2) {
     phase = "hover";
     t = 0;
   }
+
   if (phase === "hover" && unityReady) {
     phase = "in";
     t = 0;
   }
-  if (phase === "in" && t > 1.2) {
+
+  if (phase === "in" && t > 1.25) {
     phase = "bounce";
     t = 0;
   }
-  if (phase === "bounce" && t > 0.7) {
-    phase = "done";
+
+  if (phase === "bounce" && t > 0.68) {
     cover.style.opacity = "0";
     setTimeout(() => {
       cover.style.display = "none";
       canvas.style.opacity = "1";
-    }, 700);
+    }, 650);
   }
 
-  // Float strength smoothing
-  let targetFloat = (phase === "hover") ? 1.18 : 0.35;
-  floatStrength += (targetFloat - floatStrength) * 10 * dt;
+  // Smooth floating strength
+  let targetFloat = (phase === "hover") ? 1.18 : 0.4;
+  floatStrength += (targetFloat - floatStrength) * 12 * dt;
 
   for (let c of circles) {
     let baseX = 0, baseY = 0, alpha = 1;
@@ -181,29 +182,33 @@ function loop(now) {
       const progress = 1 - easeIn(Math.min(t / 1.2, 1));
       baseX = c.tx * progress;
       baseY = c.ty * progress;
-      alpha = progress * (1.1 - t * 1.2);   // сильный fade out
+      alpha = Math.max(0, progress * (1.4 - t * 1.6));  // сильный fade out
     } 
     else {
       alpha = 0;
     }
 
-    const fx = Math.sin(globalTime + circles.indexOf(c) * 1.3) * 5.5;
-    const fy = Math.cos(globalTime + circles.indexOf(c) * 1.3) * 5.5;
+    // Парение
+    const fx = Math.sin(globalTime + c.offset) * 5.5;
+    const fy = Math.cos(globalTime + c.offset) * 5.5;
 
     const x = baseX + fx * floatStrength;
     const y = baseY + fy * floatStrength;
 
     c.el.style.transform = `translate(-50%, -50%) translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`;
-    c.el.style.opacity = Math.max(0, alpha);
+    c.el.style.opacity = alpha;
   }
 
-  // Bounce logo
+  // === МЯГКИЙ БАУНС ЛОГО ===
   if (phase === "bounce") {
     let scale = 1;
-    if (t < 0.25) scale = 1 + (t / 0.25) * 0.45;
-    else if (t < 0.55) scale = 1.45 - ((t - 0.25) / 0.3) * 0.52;
-    else scale = 0.93 + ((t - 0.55) / 0.15) * 0.07;
-
+    if (t < 0.24) {
+      scale = 1 + (t / 0.24) * 0.48;
+    } else if (t < 0.54) {
+      scale = 1.48 - ((t - 0.24) / 0.3) * 0.55;
+    } else {
+      scale = 0.93 + ((t - 0.54) / 0.14) * 0.07;
+    }
     logo.style.transform = `translate(-50%, -50%) scale(${scale.toFixed(3)})`;
   } else {
     logo.style.transform = `translate(-50%, -50%) scale(1)`;
@@ -227,14 +232,13 @@ script.onload = () => {
   createUnityInstance(canvas, config, () => {})
     .then(() => {
       unityReady = true;
-      console.log("Unity loaded successfully");
     })
-    .catch(err => console.error("Unity load failed:", err));
+    .catch(err => console.error("Unity load error:", err));
 };
 
 document.body.appendChild(script);
 
-// ===== INIT =====
+// ===== START =====
 initCircles();
 resizeCanvas();
 requestAnimationFrame(loop);
