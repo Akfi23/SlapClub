@@ -38,18 +38,17 @@ body {
 
 .loader {
   position:relative;
-  width:400px;
-  height:400px;
+  width:420px;
+  height:420px;
 }
 
 .logo {
   position:absolute;
-  width:120px;
+  width:180px;                    /* ← Сделали больше */
   top:50%;
   left:50%;
   transform: translate(-50%, -50%) scale(1);
   will-change: transform;
-  /* УБРАЛИ transition — он конфликтовал с JS и вызывал дёргание */
 }
 
 .circle {
@@ -78,10 +77,12 @@ body {
 // ===== CONFIG =====
 const ASPECT = 1920 / 1080;
 let unityReady = false;
+let animationStarted = false;   // когда начинаем fly → return → bounce
 let animationFinished = false;
 let t = 0;
-let mode = "fly";
-let floatStrength = 0.48;           // ← плавный lerp для устранения дёргания
+let mode = "hover";             // начинаем сразу с парения
+
+let floatStrength = 0.5;
 
 // ===== ELEMENTS =====
 const cover = document.getElementById("loading-cover");
@@ -105,7 +106,7 @@ function resizeCanvas() {
 
 // ===== CIRCLES =====
 const COUNT = 9;
-const MIN_R = 80, MAX_R = 140;
+const MIN_R = 95, MAX_R = 165;   // чуть дальше от центра из-за большего логотипа
 let circles = [];
 
 for (let i = 0; i < COUNT; i++) {
@@ -140,20 +141,30 @@ function loop(now) {
   last = now;
   t += dt;
 
-  // Режимы (полностью доигрываем анимацию)
-  if (mode === "fly" && t > 1.0)      { mode = "hover"; t = 0; }
-  if (mode === "hover" && t > 1.4)    { mode = "return"; t = 0; }
-  if (mode === "return" && t > 1.0)   { mode = "bounce"; t = 0; }
-  if (mode === "bounce" && t > 0.68) {
-    animationFinished = true;
-    checkShowGame();
-  }
-
   const time = now * 0.002;
 
-  // === ПЛАВНЫЙ LERP СИЛЫ ПАРЕНИЯ — УБИРАЕТ ДЁРГАНИЕ ===
-  const targetStrength = (mode === "hover") ? 1.12 : (mode === "bounce" ? 0.1 : 0.48);
-  floatStrength += (targetStrength - floatStrength) * (12 * dt);   // 12 = скорость сглаживания
+  // === ЛОГИКА РЕЖИМОВ ===
+  if (unityReady && !animationStarted) {
+    animationStarted = true;
+    mode = "fly";
+    t = 0;
+  }
+
+  if (animationStarted) {
+    if (mode === "fly" && t > 1.0)     { mode = "return"; t = 0; }
+    if (mode === "return" && t > 1.0)  { mode = "bounce"; t = 0; }
+    if (mode === "bounce" && t > 0.65) {
+      animationFinished = true;
+      checkShowGame();
+    }
+  }
+
+  // Плавный lerp силы парения
+  let targetStrength = 1.15;
+  if (mode === "fly" || mode === "return") targetStrength = 0.6;
+  if (mode === "bounce") targetStrength = 0.15;
+
+  floatStrength += (targetStrength - floatStrength) * (14 * dt);
 
   for (let c of circles) {
     let baseX = 0, baseY = 0, alpha = 1;
@@ -162,12 +173,7 @@ function loop(now) {
       const k = easeOut(t);
       baseX = c.x * k;
       baseY = c.y * k;
-      alpha = Math.min(t * 1.6, 1);
-    } 
-    else if (mode === "hover") {
-      baseX = c.x;
-      baseY = c.y;
-      alpha = 1;
+      alpha = Math.min(t * 1.8, 1);
     } 
     else if (mode === "return") {
       const k = 1 - easeIn(t);
@@ -178,28 +184,29 @@ function loop(now) {
     else if (mode === "bounce") {
       baseX = 0;
       baseY = 0;
-      alpha = Math.max(1 - t * 3.5, 0);
+      alpha = Math.max(1 - (t * 4), 0);
     }
+    // в hover — baseX/Y = 0 (круги уже на позиции парения)
 
-    const floatX = Math.sin(time + c.offset) * 5;
-    const floatY = Math.cos(time + c.offset) * 5;
+    const floatX = Math.sin(time + c.offset) * 5.2;
+    const floatY = Math.cos(time + c.offset) * 5.2;
 
     const x = baseX + floatX * floatStrength;
     const y = baseY + floatY * floatStrength;
 
-    c.el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+    c.el.style.transform = `translate(-50%, -50%) translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`;
     c.el.style.opacity = alpha;
   }
 
-  // === БАУНС ЛОГО (без CSS transition — чистый JS) ===
+  // === МЯГКИЙ БАУНС ЛОГО ===
   if (mode === "bounce") {
     let s = 1;
-    if (t < 0.22) {
-      s = 1 + (t / 0.22) * 0.85;
-    } else if (t < 0.48) {
-      s = 1.85 - ((t - 0.22) / 0.26) * 0.92;
+    if (t < 0.25) {
+      s = 1 + (t / 0.25) * 0.55;           // мягкий подъём
+    } else if (t < 0.55) {
+      s = 1.55 - ((t - 0.25) / 0.30) * 0.62; // плавный возврат
     } else {
-      s = 0.93 + ((t - 0.48) / 0.20) * 0.07;
+      s = 0.93 + ((t - 0.55) / 0.10) * 0.07; // лёгкая осадка
     }
     logo.style.transform = `translate(-50%, -50%) scale(${s.toFixed(3)})`;
   } else {
@@ -216,11 +223,11 @@ function checkShowGame() {
     setTimeout(() => {
       cover.style.display = "none";
       canvas.style.opacity = "1";
-    }, 650);
+    }, 600);
   }
 }
 
-// ===== UNITY (начинает грузиться сразу, но показывается только после анимации) =====
+// ===== UNITY =====
 const buildUrl = "Build";
 const script = document.createElement("script");
 script.src = buildUrl + "/SC.loader.js";
@@ -235,7 +242,7 @@ script.onload = () => {
   createUnityInstance(canvas, config, () => {})
   .then(() => {
     unityReady = true;
-    checkShowGame();
+    // Анимация fly начнётся автоматически в loop()
   })
   .catch(err => console.error("Unity load error:", err));
 };
