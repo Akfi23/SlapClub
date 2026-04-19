@@ -2,152 +2,229 @@
 <html lang="en-us">
 
 <head>
-  <meta charset="utf-8">
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
-  <title>Slap Club</title>
-  <link rel="shortcut icon" href="TemplateData/favicon.ico">
-  <link rel="stylesheet" href="TemplateData/style.css">
+<title>Slap Club</title>
 
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      width: 100vw;
-      height: 100vh;
-      background-color: #000000;
-    }
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+}
 
-    #unity-container {
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background-color: #000000;
-    }
+/* ===== UNITY ===== */
 
-    #unity-canvas {
-      background: #000000;
-      display: block;
-    }
-  </style>
+#unity-container {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+#unity-canvas {
+  background: #000;
+  position: absolute;
+}
+
+/* ===== LOADER ===== */
+
+#loading-cover {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.loader {
+  position: relative;
+  width: 300px;
+  height: 300px;
+}
+
+/* квадрат */
+.square {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  background: #4CAF50;
+  border-radius: 10px;
+
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1);
+
+  animation: squareBounce 4s infinite ease-in-out;
+}
+
+/* круги */
+.circle {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: #FF5722;
+  border-radius: 50%;
+
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) translate(0,0);
+  opacity: 0;
+
+  animation: move 4s infinite ease-in-out;
+}
+
+/* позиции */
+.c1 { --x: 0px;   --y: -110px; }
+.c2 { --x: 80px;  --y: -80px; }
+.c3 { --x: 110px; --y: 0px; }
+.c4 { --x: 80px;  --y: 80px; }
+.c5 { --x: 0px;   --y: 110px; }
+.c6 { --x: -80px; --y: 80px; }
+.c7 { --x: -110px;--y: 0px; }
+.c8 { --x: -80px; --y: -80px; }
+.c9 { --x: 40px;  --y: 40px; }
+
+/* движение */
+@keyframes move {
+
+  0% {
+    transform: translate(-50%, -50%) translate(0,0);
+    opacity: 0;
+  }
+
+  25% {
+    transform: translate(-50%, -50%) translate(var(--x), var(--y));
+    opacity: 1;
+  }
+
+  50% {
+    transform: translate(-50%, -50%) translate(var(--x), var(--y)) translate(5px, -5px);
+  }
+
+  60% {
+    transform: translate(-50%, -50%) translate(var(--x), var(--y)) translate(-5px, 5px);
+  }
+
+  85% {
+    transform: translate(-50%, -50%) translate(0,0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) translate(0,0);
+    opacity: 0;
+  }
+}
+
+/* bounce */
+@keyframes squareBounce {
+
+  0%, 70%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  80% {
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+
+  90% {
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+}
+</style>
 </head>
 
-<body class="dark">
-  <div id="unity-container" class="unity-desktop">
-    <canvas id="unity-canvas" tabindex="-1"></canvas>
+<body>
+
+<div id="unity-container">
+  <canvas id="unity-canvas"></canvas>
+</div>
+
+<!-- LOADER -->
+<div id="loading-cover">
+  <div class="loader">
+    <div class="square"></div>
+
+    <div class="circle c1"></div>
+    <div class="circle c2"></div>
+    <div class="circle c3"></div>
+    <div class="circle c4"></div>
+    <div class="circle c5"></div>
+    <div class="circle c6"></div>
+    <div class="circle c7"></div>
+    <div class="circle c8"></div>
+    <div class="circle c9"></div>
   </div>
+</div>
 
-  <div id="loading-cover" style="display:none;">
-    <div id="unity-loading-bar">
-      <div id="unity-logo"><img src="logo.png"></div>
-      <div id="unity-progress-bar-empty" style="display: none;">
-        <div id="unity-progress-bar-full"></div>
-      </div>
-      <div class="spinner"></div>
-    </div>
-  </div>
+<script>
+const GAME_ASPECT = 1920 / 1080;
 
-  <script>
-    // ============ РЕСАЙЗ ПОД 1920x1080 (ВСЕГДА LANDSCAPE) ============
-    const GAME_ASPECT = 1920 / 1080;
+function resizeCanvas() {
+  const canvas = document.getElementById("unity-canvas");
 
-    function resizeCanvas() {
-      const container = document.getElementById("unity-container");
-      const canvas = document.getElementById("unity-canvas");
+  const w = window.innerWidth;
+  const h = window.innerHeight;
 
-      if (!container || !canvas) return;
+  let drawWidth, drawHeight;
 
-      setTimeout(() => {
-        const containerWidth = window.innerWidth;
-        const containerHeight = window.innerHeight;
-        const containerAspect = containerWidth / containerHeight;
+  if (w / h > GAME_ASPECT) {
+    drawHeight = h;
+    drawWidth = h * GAME_ASPECT;
+  } else {
+    drawWidth = w;
+    drawHeight = w / GAME_ASPECT;
+  }
 
-        let drawWidth, drawHeight;
+  canvas.style.width = drawWidth + "px";
+  canvas.style.height = drawHeight + "px";
+  canvas.style.left = "50%";
+  canvas.style.top = "50%";
+  canvas.style.transform = "translate(-50%, -50%)";
+}
 
-        if (containerAspect > GAME_ASPECT) {
-          drawHeight = containerHeight;
-          drawWidth = containerHeight * GAME_ASPECT;
-        } else {
-          drawWidth = containerWidth;
-          drawHeight = containerWidth / GAME_ASPECT;
-        }
+// ===== UNITY LOAD =====
 
-        canvas.style.setProperty('width', `${drawWidth}px`, 'important');
-        canvas.style.setProperty('height', `${drawHeight}px`, 'important');
+const buildUrl = "Build";
+const loaderUrl = buildUrl + "/SC.loader.js";
 
-        canvas.style.position = 'absolute';
-        canvas.style.left = '50%';
-        canvas.style.top = '50%';
-        canvas.style.transform = 'translate(-50%, -50%)';
+const config = {
+  dataUrl: buildUrl + "/SC.data.unityweb",
+  frameworkUrl: buildUrl + "/SC.framework.js.unityweb",
+  codeUrl: buildUrl + "/SC.wasm.unityweb",
+  streamingAssetsUrl: "StreamingAssets",
+  companyName: "aaaaa",
+  productName: "Slap Club",
+  productVersion: "1.0",
+};
 
-      }, 100);
-    }
+const canvas = document.querySelector("#unity-canvas");
+const loadingCover = document.querySelector("#loading-cover");
 
-    // ============ ИНИЦИАЛИЗАЦИЯ UNITY ============
-    const buildUrl = "Build";
-    const loaderUrl = buildUrl + "/SC.loader.js";
+const script = document.createElement("script");
+script.src = loaderUrl;
 
-    const config = {
-      dataUrl: buildUrl + "/SC.data.unityweb",
-      frameworkUrl: buildUrl + "/SC.framework.js.unityweb",
-      codeUrl: buildUrl + "/SC.wasm.unityweb",
-      streamingAssetsUrl: "StreamingAssets",
-      companyName: "aaaaa",
-      productName: "Slap Club",
-      productVersion: "1.0",
-    };
-
-    const container = document.querySelector("#unity-container");
-    const canvas = document.querySelector("#unity-canvas");
-    const loadingCover = document.querySelector("#loading-cover");
-    const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
-    const progressBarFull = document.querySelector("#unity-progress-bar-full");
-    const spinner = document.querySelector('.spinner');
-
-    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-      container.className = "unity-mobile";
-      config.devicePixelRatio = window.devicePixelRatio;
-    }
-
-    loadingCover.style.display = "";
-
-    const script = document.createElement("script");
-    script.src = loaderUrl;
-
-    script.onload = () => {
-      createUnityInstance(canvas, config, (progress) => {
-        spinner.style.display = "none";
-        progressBarEmpty.style.display = "";
-        progressBarFull.style.width = `${100 * progress}%`;
-      }).then((unityInstance) => {
-        loadingCover.style.display = "none";
-
-        // применяем фиксированный 16:9
-        resizeCanvas();
-
-      }).catch((message) => {
-        alert(message);
-      });
-    };
-
-    document.body.appendChild(script);
-
-    // слушаем ресайз
-    window.addEventListener("resize", resizeCanvas);
-
-    window.addEventListener("orientationchange", () => {
+script.onload = () => {
+  createUnityInstance(canvas, config, () => {})
+    .then(() => {
+      // скрываем loader
+      loadingCover.style.display = "none";
       resizeCanvas();
-      setTimeout(resizeCanvas, 500);
-    });
+    })
+    .catch(alert);
+};
 
-    window.addEventListener('load', () => {
-      resizeCanvas();
-    });
-  </script>
+document.body.appendChild(script);
+
+// resize events
+window.addEventListener("resize", resizeCanvas);
+window.addEventListener("load", resizeCanvas);
+</script>
+
 </body>
-
 </html>
