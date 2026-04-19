@@ -1,77 +1,62 @@
 <!DOCTYPE html>
 <html lang="en-us">
-
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Slap Club</title>
 
 <style>
-body {
-  margin: 0;
-  overflow: hidden;
-  background: #000;
-}
-
-/* UNITY */
-#unity-container {
-  width: 100vw;
-  height: 100vh;
-}
+body { margin:0; background:#000; overflow:hidden; }
 
 #unity-canvas {
-  position: absolute;
-  background: #000;
+  position:absolute;
+  background:#000;
 }
 
-/* LOADER */
 #loading-cover {
-  position: fixed;
-  inset: 0;
-  background: #000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 999;
+  position:fixed;
+  inset:0;
+  background:#000;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  z-index:999;
 }
 
 .loader {
-  position: relative;
-  width: 400px;
-  height: 400px;
+  position:relative;
+  width:400px;
+  height:400px;
 }
 
 .square {
-  position: absolute;
-  width: 70px;
-  height: 70px;
-  background: #4CAF50;
-  border-radius: 10px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position:absolute;
+  width:70px;
+  height:70px;
+  background:#4CAF50;
+  border-radius:10px;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
 }
 
 .circle {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: #FF5722;
-  border-radius: 50%;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  opacity: 0;
+  position:absolute;
+  width:20px;
+  height:20px;
+  background:#FF5722;
+  border-radius:50%;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  opacity:0;
 }
 </style>
 </head>
 
 <body>
 
-<div id="unity-container">
-  <canvas id="unity-canvas"></canvas>
-</div>
+<canvas id="unity-canvas"></canvas>
 
 <div id="loading-cover">
   <div class="loader" id="loader">
@@ -81,149 +66,129 @@ body {
 
 <script>
 // ===== RESIZE =====
-const GAME_ASPECT = 1920 / 1080;
-
+const GAME_ASPECT = 1920/1080;
 function resizeCanvas() {
-  const canvas = document.getElementById("unity-canvas");
-
+  const c = document.getElementById("unity-canvas");
   const w = window.innerWidth;
   const h = window.innerHeight;
 
-  let drawWidth, drawHeight;
-
-  if (w / h > GAME_ASPECT) {
-    drawHeight = h;
-    drawWidth = h * GAME_ASPECT;
+  let dw, dh;
+  if (w/h > GAME_ASPECT) {
+    dh = h; dw = h * GAME_ASPECT;
   } else {
-    drawWidth = w;
-    drawHeight = w / GAME_ASPECT;
+    dw = w; dh = w / GAME_ASPECT;
   }
 
-  canvas.style.width = drawWidth + "px";
-  canvas.style.height = drawHeight + "px";
-  canvas.style.left = "50%";
-  canvas.style.top = "50%";
-  canvas.style.transform = "translate(-50%, -50%)";
+  c.style.width = dw+"px";
+  c.style.height = dh+"px";
+  c.style.left = "50%";
+  c.style.top = "50%";
+  c.style.transform = "translate(-50%,-50%)";
 }
 
-// ===== LOADER ANIMATION =====
+// ===== LOADER STATE =====
+let unityReady = false;
+let animationDone = false;
 
+// ===== ELEMENTS =====
 const loader = document.getElementById("loader");
 const square = document.getElementById("square");
 
+// ===== CIRCLES =====
 const COUNT = 9;
-const MIN_RADIUS = 80;
-const MAX_RADIUS = 140;
+const MIN_R = 80;
+const MAX_R = 140;
 
 let circles = [];
 
-// create circles
-for (let i = 0; i < COUNT; i++) {
-  const el = document.createElement("div");
+for (let i=0;i<COUNT;i++){
+  let el = document.createElement("div");
   el.className = "circle";
   loader.appendChild(el);
 
   circles.push({
     el,
-    x: 0,
-    y: 0,
-    floatOffset: Math.random() * 1000
+    x:0,y:0,
+    offset:Math.random()*1000
   });
 }
 
-function regenerateTargets() {
-  circles.forEach(c => {
-    const angle = Math.random() * Math.PI * 2;
-    const radius = MIN_RADIUS + Math.random() * (MAX_RADIUS - MIN_RADIUS);
-
-    c.x = Math.cos(angle) * radius;
-    c.y = Math.sin(angle) * radius;
+function regen(){
+  circles.forEach(c=>{
+    let a = Math.random()*Math.PI*2;
+    let r = MIN_R + Math.random()*(MAX_R-MIN_R);
+    c.x = Math.cos(a)*r;
+    c.y = Math.sin(a)*r;
   });
 }
 
 // easing
-function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
-function easeIn(t) { return t * t * t; }
+const easeOut = t => 1-Math.pow(1-t,3);
+const easeIn = t => t*t*t;
 
-function smoothstep(a, b, x) {
-  x = Math.max(0, Math.min(1, (x - a) / (b - a)));
-  return x * x * (3 - 2 * x);
-}
-
-// bounce
-function bounceSquare(t) {
-  let scale;
-
-  if (t < 0.5) scale = 1 + t * 0.3;
-  else scale = 1.15 - (t - 0.5) * 0.5;
-
-  square.style.transform =
-    `translate(-50%, -50%) scale(${scale})`;
-}
-
-// loop
+// ===== LOOP =====
 let time = 0;
+let mode = "fly"; // fly → hover → return → done
 
-function animate() {
+function animate(){
   time += 0.016;
 
-  let phase;
-
-  if (time < 1) phase = 0;
-  else if (time < 2.5) phase = 1;
-  else if (time < 3.5) phase = 2;
-  else if (time < 4.5) phase = 3;
-  else {
-    time = 0;
-    regenerateTargets();
+  // --- переключение состояний ---
+  if (mode === "fly" && time > 1){
+    mode = "hover";
   }
 
-  circles.forEach(c => {
+  if (mode === "hover" && unityReady){
+    mode = "return";
+    time = 0;
+  }
 
-    let baseX = 0;
-    let baseY = 0;
-    let alpha = 1;
+  if (mode === "return" && time > 1){
+    mode = "done";
+    animationDone = true;
+    hideLoader();
+  }
 
-    if (phase === 0) {
-      let t = time / 1;
+  circles.forEach(c=>{
+    let baseX=0, baseY=0, alpha=1;
+
+    if (mode === "fly"){
+      let t = time;
       baseX = c.x * easeOut(t);
       baseY = c.y * easeOut(t);
       alpha = t;
     }
-    else if (phase === 1) {
+
+    if (mode === "hover"){
       baseX = c.x;
       baseY = c.y;
+      alpha = 1;
     }
-    else if (phase === 2) {
-      let t = (time - 2.5);
+
+    if (mode === "return"){
+      let t = time;
       let k = 1 - easeIn(t);
       baseX = c.x * k;
       baseY = c.y * k;
 
       bounceSquare(t);
     }
-    else {
+
+    if (mode === "done"){
       alpha = 0;
-      square.style.transform = "translate(-50%, -50%) scale(1)";
     }
 
-    let floatStrength = 0;
+    // плавное парение
+    let floatX = Math.sin(performance.now()*0.002 + c.offset)*5;
+    let floatY = Math.cos(performance.now()*0.002 + c.offset)*5;
 
-    if (phase === 0)
-      floatStrength = smoothstep(0.6, 1.0, time);
-    else if (phase === 1)
-      floatStrength = 1;
-    else if (phase === 2)
-      floatStrength = 1 - smoothstep(0.0, 0.4, time - 2.5);
+    let strength = (mode==="hover") ? 1 : 0.5;
 
-    let floatX = Math.sin(time * 2 + c.floatOffset) * 5;
-    let floatY = Math.cos(time * 2 + c.floatOffset) * 5;
-
-    let x = baseX + floatX * floatStrength;
-    let y = baseY + floatY * floatStrength;
+    let x = baseX + floatX*strength;
+    let y = baseY + floatY*strength;
 
     c.el.style.transform =
-      `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+      `translate(-50%,-50%) translate(${x}px,${y}px)`;
 
     c.el.style.opacity = alpha;
   });
@@ -231,11 +196,29 @@ function animate() {
   requestAnimationFrame(animate);
 }
 
-regenerateTargets();
-animate();
+// ===== BOUNCE =====
+function bounceSquare(t){
+  let s;
+  if (t<0.5) s = 1 + t*0.3;
+  else s = 1.15 - (t-0.5)*0.5;
+
+  square.style.transform =
+    `translate(-50%,-50%) scale(${s})`;
+}
+
+// ===== HIDE =====
+function hideLoader(){
+  const cover = document.getElementById("loading-cover");
+
+  cover.style.transition = "opacity 0.4s ease";
+  cover.style.opacity = 0;
+
+  setTimeout(()=>{
+    cover.style.display = "none";
+  },400);
+}
 
 // ===== UNITY LOAD =====
-
 const buildUrl = "Build";
 const loaderUrl = buildUrl + "/SC.loader.js";
 
@@ -243,28 +226,29 @@ const config = {
   dataUrl: buildUrl + "/SC.data.unityweb",
   frameworkUrl: buildUrl + "/SC.framework.js.unityweb",
   codeUrl: buildUrl + "/SC.wasm.unityweb",
-  streamingAssetsUrl: "StreamingAssets",
 };
 
 const canvas = document.getElementById("unity-canvas");
-const loadingCover = document.getElementById("loading-cover");
 
 const script = document.createElement("script");
 script.src = loaderUrl;
 
 script.onload = () => {
-  createUnityInstance(canvas, config, () => {})
-    .then(() => {
-      loadingCover.style.display = "none";
-      resizeCanvas();
+  createUnityInstance(canvas, config, ()=>{})
+    .then(()=>{
+      unityReady = true; // 🔥 ключ
     })
     .catch(alert);
 };
 
 document.body.appendChild(script);
 
+// старт
+regen();
+animate();
+resizeCanvas();
+
 window.addEventListener("resize", resizeCanvas);
-window.addEventListener("load", resizeCanvas);
 </script>
 
 </body>
