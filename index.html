@@ -2,21 +2,31 @@
 <html lang="en-us">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width">
+
 <title>Slap Club</title>
 
 <style>
-body { margin:0; background:#000; overflow:hidden; }
+body {
+  margin:0;
+  overflow:hidden;
 
-#unity-canvas {
-  position:absolute;
-  background:#000;
+  /* 🔥 glow фон */
+  background: radial-gradient(circle at center,
+    #0a1f3d 0%,
+    #050b1a 40%,
+    #000 80%);
 }
 
+/* UNITY */
+#unity-canvas {
+  position:absolute;
+}
+
+/* LOADER */
 #loading-cover {
   position:fixed;
   inset:0;
-  background:#000;
   display:flex;
   justify-content:center;
   align-items:center;
@@ -29,27 +39,30 @@ body { margin:0; background:#000; overflow:hidden; }
   height:400px;
 }
 
-.square {
+/* 🔥 LOGO */
+.logo {
   position:absolute;
-  width:70px;
-  height:70px;
-  background:#4CAF50;
-  border-radius:10px;
+  width:120px;
   top:50%;
   left:50%;
-  transform:translate(-50%,-50%);
+  transform:translate(-50%,-50%) scale(1);
+  will-change: transform;
 }
 
+/* circles */
 .circle {
   position:absolute;
-  width:20px;
-  height:20px;
-  background:#FF5722;
+  width:18px;
+  height:18px;
+  background:#3fa9ff;
   border-radius:50%;
   top:50%;
   left:50%;
-  transform:translate(-50%,-50%);
+
+  transform:translate3d(-50%,-50%,0);
   opacity:0;
+
+  will-change: transform, opacity;
 }
 </style>
 </head>
@@ -60,195 +73,180 @@ body { margin:0; background:#000; overflow:hidden; }
 
 <div id="loading-cover">
   <div class="loader" id="loader">
-    <div class="square" id="square"></div>
+    <img src="logo.png" class="logo" id="logo">
   </div>
 </div>
 
 <script>
 // ===== RESIZE =====
-const GAME_ASPECT = 1920/1080;
-function resizeCanvas() {
+const ASPECT = 1920/1080;
+function resizeCanvas(){
   const c = document.getElementById("unity-canvas");
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const w = innerWidth, h = innerHeight;
 
-  let dw, dh;
-  if (w/h > GAME_ASPECT) {
-    dh = h; dw = h * GAME_ASPECT;
-  } else {
-    dw = w; dh = w / GAME_ASPECT;
-  }
+  let dw,dh;
+  if (w/h>ASPECT){ dh=h; dw=h*ASPECT; }
+  else { dw=w; dh=w/ASPECT; }
 
-  c.style.width = dw+"px";
-  c.style.height = dh+"px";
-  c.style.left = "50%";
-  c.style.top = "50%";
-  c.style.transform = "translate(-50%,-50%)";
+  c.style.width=dw+"px";
+  c.style.height=dh+"px";
+  c.style.left="50%";
+  c.style.top="50%";
+  c.style.transform="translate(-50%,-50%)";
 }
 
-// ===== LOADER STATE =====
-let unityReady = false;
-let animationDone = false;
+// ===== STATE =====
+let unityReady=false;
+let mode="fly";
+let t=0;
 
 // ===== ELEMENTS =====
-const loader = document.getElementById("loader");
-const square = document.getElementById("square");
+const loader=document.getElementById("loader");
+const logo=document.getElementById("logo");
 
 // ===== CIRCLES =====
-const COUNT = 9;
-const MIN_R = 80;
-const MAX_R = 140;
+const COUNT=9;
+const MIN_R=80, MAX_R=140;
 
-let circles = [];
+let circles=[];
 
-for (let i=0;i<COUNT;i++){
-  let el = document.createElement("div");
-  el.className = "circle";
+for(let i=0;i<COUNT;i++){
+  let el=document.createElement("div");
+  el.className="circle";
   loader.appendChild(el);
 
   circles.push({
     el,
     x:0,y:0,
-    offset:Math.random()*1000
+    phase:Math.random()*6.28
   });
 }
 
 function regen(){
-  circles.forEach(c=>{
-    let a = Math.random()*Math.PI*2;
-    let r = MIN_R + Math.random()*(MAX_R-MIN_R);
-    c.x = Math.cos(a)*r;
-    c.y = Math.sin(a)*r;
-  });
+  for(let c of circles){
+    let a=Math.random()*6.28;
+    let r=MIN_R+Math.random()*(MAX_R-MIN_R);
+    c.x=Math.cos(a)*r;
+    c.y=Math.sin(a)*r;
+  }
 }
 
 // easing
-const easeOut = t => 1-Math.pow(1-t,3);
-const easeIn = t => t*t*t;
+const easeOut=t=>1-(1-t)*(1-t)*(1-t);
+const easeIn=t=>t*t*t;
 
 // ===== LOOP =====
-let time = 0;
-let mode = "fly"; // fly → hover → return → done
+let last=performance.now();
 
-function animate(){
-  time += 0.016;
+function loop(now){
+  let dt=(now-last)*0.001;
+  last=now;
 
-  // --- переключение состояний ---
-  if (mode === "fly" && time > 1){
-    mode = "hover";
+  t+=dt;
+
+  // state switch
+  if(mode==="fly" && t>1){
+    mode="hover";
   }
 
-  if (mode === "hover" && unityReady){
-    mode = "return";
-    time = 0;
+  if(mode==="hover" && unityReady){
+    mode="return";
+    t=0;
   }
 
-  if (mode === "return" && time > 1){
-    mode = "done";
-    animationDone = true;
-    hideLoader();
+  if(mode==="return" && t>1){
+    hide();
+    return;
   }
 
-  circles.forEach(c=>{
+  let time = now*0.002;
+
+  for(let c of circles){
+
     let baseX=0, baseY=0, alpha=1;
 
-    if (mode === "fly"){
-      let t = time;
-      baseX = c.x * easeOut(t);
-      baseY = c.y * easeOut(t);
-      alpha = t;
+    if(mode==="fly"){
+      let k=easeOut(t);
+      baseX=c.x*k;
+      baseY=c.y*k;
+      alpha=t;
     }
 
-    if (mode === "hover"){
-      baseX = c.x;
-      baseY = c.y;
-      alpha = 1;
+    if(mode==="hover"){
+      baseX=c.x;
+      baseY=c.y;
     }
 
-    if (mode === "return"){
-      let t = time;
-      let k = 1 - easeIn(t);
-      baseX = c.x * k;
-      baseY = c.y * k;
+    if(mode==="return"){
+      let k=1-easeIn(t);
+      baseX=c.x*k;
+      baseY=c.y*k;
 
-      bounceSquare(t);
+      bounceLogo(t);
     }
 
-    if (mode === "done"){
-      alpha = 0;
-    }
+    let floatX=Math.sin(time+c.phase)*4;
+    let floatY=Math.cos(time+c.phase)*4;
 
-    // плавное парение
-    let floatX = Math.sin(performance.now()*0.002 + c.offset)*5;
-    let floatY = Math.cos(performance.now()*0.002 + c.offset)*5;
+    let strength=(mode==="hover")?1:0.5;
 
-    let strength = (mode==="hover") ? 1 : 0.5;
-
-    let x = baseX + floatX*strength;
-    let y = baseY + floatY*strength;
+    let x=baseX+floatX*strength;
+    let y=baseY+floatY*strength;
 
     c.el.style.transform =
-      `translate(-50%,-50%) translate(${x}px,${y}px)`;
+      `translate3d(calc(-50% + ${x}px), calc(-50% + ${y}px), 0)`;
 
-    c.el.style.opacity = alpha;
-  });
+    c.el.style.opacity=alpha;
+  }
 
-  requestAnimationFrame(animate);
+  requestAnimationFrame(loop);
 }
 
 // ===== BOUNCE =====
-function bounceSquare(t){
+function bounceLogo(t){
   let s;
-  if (t<0.5) s = 1 + t*0.3;
-  else s = 1.15 - (t-0.5)*0.5;
+  if(t<0.5) s=1+t*0.3;
+  else s=1.15-(t-0.5)*0.5;
 
-  square.style.transform =
+  logo.style.transform =
     `translate(-50%,-50%) scale(${s})`;
 }
 
 // ===== HIDE =====
-function hideLoader(){
-  const cover = document.getElementById("loading-cover");
+function hide(){
+  const cover=document.getElementById("loading-cover");
+  cover.style.transition="opacity .4s";
+  cover.style.opacity=0;
 
-  cover.style.transition = "opacity 0.4s ease";
-  cover.style.opacity = 0;
-
-  setTimeout(()=>{
-    cover.style.display = "none";
-  },400);
+  setTimeout(()=>cover.style.display="none",400);
 }
 
-// ===== UNITY LOAD =====
-const buildUrl = "Build";
-const loaderUrl = buildUrl + "/SC.loader.js";
+// ===== UNITY =====
+const buildUrl="Build";
+const script=document.createElement("script");
+script.src=buildUrl+"/SC.loader.js";
 
-const config = {
-  dataUrl: buildUrl + "/SC.data.unityweb",
-  frameworkUrl: buildUrl + "/SC.framework.js.unityweb",
-  codeUrl: buildUrl + "/SC.wasm.unityweb",
+const config={
+  dataUrl: buildUrl+"/SC.data.unityweb",
+  frameworkUrl: buildUrl+"/SC.framework.js.unityweb",
+  codeUrl: buildUrl+"/SC.wasm.unityweb"
 };
 
-const canvas = document.getElementById("unity-canvas");
-
-const script = document.createElement("script");
-script.src = loaderUrl;
-
-script.onload = () => {
-  createUnityInstance(canvas, config, ()=>{})
-    .then(()=>{
-      unityReady = true; // 🔥 ключ
-    })
-    .catch(alert);
+script.onload=()=>{
+  createUnityInstance(document.getElementById("unity-canvas"), config, ()=>{})
+  .then(()=>{
+    unityReady=true;
+  });
 };
 
 document.body.appendChild(script);
 
-// старт
+// start
 regen();
-animate();
 resizeCanvas();
+requestAnimationFrame(loop);
 
-window.addEventListener("resize", resizeCanvas);
+addEventListener("resize",resizeCanvas);
 </script>
 
 </body>
