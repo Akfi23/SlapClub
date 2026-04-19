@@ -1,261 +1,208 @@
-<!DOCTYPE html>
-<html lang="en-us">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width">
-<title>Slap Club</title>
-<style>
-body {
-  margin:0;
-  overflow:hidden;
-  background:#000;
-}
-
-#loading-cover {
-  position:fixed;
-  inset:0;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  z-index:999;
-  background:
-    radial-gradient(circle at center,
-      rgba(30,80,180,0.25) 0%,
-      rgba(10,20,50,0.15) 30%,
-      rgba(0,0,0,0) 70%),
-    #000;
-  transition: opacity 0.5s ease-out;
-}
-
-#unity-canvas {
-  position:absolute;
-  background:#000;
-  opacity: 0;
-  transition: opacity 0.4s ease-in;
-}
-
-.loader {
-  position:relative;
-  width:400px;
-  height:400px;
-}
-
-.logo {
-  position:absolute;
-  width:120px;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%) scale(1);
-  will-change: transform;
-}
-
-.circle {
-  position:absolute;
-  width:18px;
-  height:18px;
-  background:#4fc3ff;
-  border-radius:50%;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  opacity:0;
-  will-change: transform, opacity;
-}
-</style>
-</head>
-<body>
-<canvas id="unity-canvas"></canvas>
-
-<div id="loading-cover">
-  <div class="loader" id="loader">
-    <img src="logo.png" class="logo" id="logo">
-  </div>
-</div>
-
 <script>
-// ===== CONFIG =====
+// ===== RESIZE =====
 const ASPECT = 1920/1080;
-let unityReady = false;
-let animationFinished = false;
-let t = 0;
-let mode = "fly";
+function resizeCanvas(){
+  const c = document.getElementById("unity-canvas");
+  const w = innerWidth, h = innerHeight;
+
+  let dw,dh;
+  if (w/h>ASPECT){ dh=h; dw=h*ASPECT; }
+  else { dw=w; dh=w/ASPECT; }
+
+  c.style.width=dw+"px";
+  c.style.height=dh+"px";
+  c.style.left="50%";
+  c.style.top="50%";
+  c.style.transform="translate(-50%,-50%)";
+}
+
+// ===== STATE =====
+let unityReady=false;
+let mode="fly";
+let t=0;
+let hoverTime=0;
 
 // ===== ELEMENTS =====
-const loader = document.getElementById("loader");
-const logo = document.getElementById("logo");
-const cover = document.getElementById("loading-cover");
-const canvas = document.getElementById("unity-canvas");
+const loader=document.getElementById("loader");
+const logo=document.getElementById("logo");
+const canvas=document.getElementById("unity-canvas");
 
-// ===== RESIZE =====
-function resizeCanvas(){
-  const w = innerWidth, h = innerHeight;
-  let dw, dh;
-  if (w/h > ASPECT) { dh = h; dw = h * ASPECT; }
-  else { dw = w; dh = w / ASPECT; }
-  
-  canvas.style.width = dw + "px";
-  canvas.style.height = dh + "px";
-  canvas.style.left = "50%";
-  canvas.style.top = "50%";
-  canvas.style.transform = "translate(-50%, -50%)";
-}
+// Unity скрыта до конца анимации
+canvas.style.opacity = 0;
 
 // ===== CIRCLES =====
-const COUNT = 9;
-const MIN_R = 80, MAX_R = 140;
-let circles = [];
+const COUNT=9;
+const MIN_R=80, MAX_R=140;
 
-for(let i = 0; i < COUNT; i++){
-  let el = document.createElement("div");
-  el.className = "circle";
+let circles=[];
+
+for(let i=0;i<COUNT;i++){
+  let el=document.createElement("div");
+  el.className="circle";
   loader.appendChild(el);
+
   circles.push({
     el,
-    x: 0, y: 0,
-    offset: Math.random() * 6.28
+    x:0,y:0,
+    offset:Math.random()*6.28
   });
 }
 
 function regen(){
   for(let c of circles){
-    let a = Math.random() * 6.28;
-    let r = MIN_R + Math.random() * (MAX_R - MIN_R);
-    c.x = Math.cos(a) * r;
-    c.y = Math.sin(a) * r;
+    let a=Math.random()*6.28;
+    let r=MIN_R+Math.random()*(MAX_R-MIN_R);
+    c.x=Math.cos(a)*r;
+    c.y=Math.sin(a)*r;
   }
 }
 
-// ===== EASING =====
+// easing
 const easeOut = t => 1 - Math.pow(1 - t, 3);
-const easeIn  = t => t * t * t;
+const easeIn = t => t * t * t;
 
-// ===== ANIMATION LOOP =====
-let last = performance.now();
+// ===== LOOP =====
+let last=performance.now();
 
 function loop(now){
-  let dt = (now - last) * 0.001;
-  last = now;
-  t += dt;
+  let dt=(now-last)*0.001;
+  last=now;
 
-  // Управление режимами анимации
-  if (mode === "fly" && t > 1) {
-    mode = "hover";
-    t = 0;
-  }
-  if (mode === "hover" && t > 1.2) {        // время парения
-    mode = "return";
-    t = 0;
-  }
-  if (mode === "return" && t > 1) {
-    mode = "bounce";
-    t = 0;
-  }
-  if (mode === "bounce" && t > 0.65) {      // баунс закончен
-    animationFinished = true;
-    checkShowGame();
+  t+=dt;
+
+  if(mode==="fly" && t>1){
+    mode="hover";
   }
 
-  let time = now * 0.002;
+  // удерживаем hover минимум немного времени
+  if(mode==="hover"){
+    hoverTime += dt;
+
+    if(unityReady && hoverTime > 0.6){
+      mode="return";
+      t=0;
+      hoverTime=0;
+    }
+  }
+
+  if(mode==="return" && t>1){
+    mode="bounce";
+    t=0;
+  }
+
+  if(mode==="bounce" && t>0.8){
+    finishLoading();
+    return;
+  }
+
+  let time = now*0.002;
 
   for(let c of circles){
-    let baseX = 0, baseY = 0, alpha = 1;
 
-    if(mode === "fly"){
-      let k = easeOut(t);
-      baseX = c.x * k;
-      baseY = c.y * k;
-      alpha = t;
-    }
-    else if(mode === "hover"){
-      baseX = c.x;
-      baseY = c.y;
-      alpha = 1;
-    }
-    else if(mode === "return"){
-      let k = 1 - easeIn(t);
-      baseX = c.x * k;
-      baseY = c.y * k;
-      alpha = 1;
-    }
-    else if(mode === "bounce"){
-      baseX = 0;
-      baseY = 0;
-      alpha = 0;
+    let baseX=0, baseY=0, alpha=1;
+
+    if(mode==="fly"){
+      let k=easeOut(t);
+      baseX=c.x*k;
+      baseY=c.y*k;
+      alpha=t;
     }
 
-    // лёгкое парение
-    let floatX = Math.sin(time + c.offset) * 5;
-    let floatY = Math.cos(time + c.offset) * 5;
-    let strength = (mode === "hover") ? 1 : 0.4;
+    else if(mode==="hover"){
+      baseX=c.x;
+      baseY=c.y;
+      alpha=1;
+    }
 
-    let x = baseX + floatX * strength;
-    let y = baseY + floatY * strength;
+    else if(mode==="return"){
+      let k=1 - easeIn(t);
+      baseX=c.x*k;
+      baseY=c.y*k;
+      alpha=1;
+    }
 
-    c.el.style.transform = `translate(-50%,-50%) translate(${x}px,${y}px)`;
-    c.el.style.opacity = alpha;
+    else if(mode==="bounce"){
+      baseX=0;
+      baseY=0;
+      alpha=0;
+    }
+
+    let floatX=Math.sin(time + c.offset)*5;
+    let floatY=Math.cos(time + c.offset)*5;
+
+    let strength = (mode==="hover") ? 1 : 0.4;
+
+    let x=baseX + floatX*strength;
+    let y=baseY + floatY*strength;
+
+    c.el.style.transform =
+      `translate(-50%,-50%) translate(${x}px,${y}px)`;
+
+    c.el.style.opacity=alpha;
   }
 
-  // Баунс логотипа
-  if(mode === "bounce"){
+  // LOGO BOUNCE
+  if(mode==="bounce"){
     let s;
-    if(t < 0.35) {
-      s = 1 + t * 0.75;           // сильный подскок
-    } else {
-      s = 1.26 - (t - 0.35) * 0.75; // возврат вниз
+
+    if(t < 0.3) {
+      s = 1 + t * 0.6;
     }
-    logo.style.transform = `translate(-50%,-50%) scale(${s})`;
-  } else {
-    logo.style.transform = `translate(-50%,-50%) scale(1)`;
+    else {
+      s = 1.18 - (t - 0.3) * 0.6;
+    }
+
+    logo.style.transform =
+      `translate(-50%,-50%) scale(${s})`;
+  }
+  else {
+    logo.style.transform =
+      `translate(-50%,-50%) scale(1)`;
   }
 
   requestAnimationFrame(loop);
 }
 
-// ===== SHOW GAME =====
-function checkShowGame(){
-  if (unityReady && animationFinished && cover.style.opacity !== "0") {
-    // Прячем загрузочный экран
-    cover.style.opacity = 0;
-    
-    setTimeout(() => {
-      cover.style.display = "none";
-      // Показываем Unity
-      canvas.style.opacity = 1;
-    }, 500);
-  }
+// ===== FINAL SHOW =====
+function finishLoading(){
+  const cover=document.getElementById("loading-cover");
+
+  cover.style.transition="opacity .4s";
+  cover.style.opacity=0;
+
+  // показываем игру
+  canvas.style.transition="opacity .6s";
+  canvas.style.opacity=1;
+
+  setTimeout(()=>{
+    cover.style.display="none";
+  },400);
 }
 
 // ===== UNITY =====
-const buildUrl = "Build";
-const script = document.createElement("script");
-script.src = buildUrl + "/SC.loader.js";
+const buildUrl="Build";
+const script=document.createElement("script");
+script.src=buildUrl+"/SC.loader.js";
 
-const config = {
-  dataUrl: buildUrl + "/SC.data.unityweb",
-  frameworkUrl: buildUrl + "/SC.framework.js.unityweb",
-  codeUrl: buildUrl + "/SC.wasm.unityweb"
+const config={
+  dataUrl: buildUrl+"/SC.data.unityweb",
+  frameworkUrl: buildUrl+"/SC.framework.js.unityweb",
+  codeUrl: buildUrl+"/SC.wasm.unityweb"
 };
 
-script.onload = () => {
-  createUnityInstance(canvas, config, (progress) => {
-    // Можно добавить индикатор прогресса, если захочешь позже
-  })
-  .then(() => {
-    unityReady = true;
-    checkShowGame();        // проверяем, можно ли уже показывать игру
-  })
-  .catch((err) => {
-    console.error("Unity failed to load:", err);
+script.onload=()=>{
+  createUnityInstance(document.getElementById("unity-canvas"), config, ()=>{})
+  .then(()=>{
+    unityReady=true;
   });
 };
 
 document.body.appendChild(script);
 
-// ===== START =====
+// start
 regen();
 resizeCanvas();
 requestAnimationFrame(loop);
-addEventListener("resize", resizeCanvas);
+
+addEventListener("resize",resizeCanvas);
 </script>
-</body>
-</html>
