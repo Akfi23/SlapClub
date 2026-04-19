@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width">
 <title>Slap Club</title>
 <style>
-body {
-  margin:0;
-  overflow:hidden;
-  background:#000;
-}
+body { margin:0; overflow:hidden; background:#000; }
 
 #loading-cover {
   position:fixed;
@@ -18,13 +14,8 @@ body {
   justify-content:center;
   align-items:center;
   z-index:999;
-  background:
-    radial-gradient(circle at center,
-      rgba(30,80,180,0.25) 0%,
-      rgba(10,20,50,0.15) 30%,
-      rgba(0,0,0,0) 70%),
-    #000;
-  transition: opacity 0.6s ease-out;
+  background: radial-gradient(circle at center, rgba(30,80,180,0.25) 0%, rgba(10,20,50,0.15) 30%, rgba(0,0,0,0) 70%), #000;
+  transition: opacity 0.7s ease-out;
   will-change: opacity;
 }
 
@@ -32,19 +23,19 @@ body {
   position:absolute;
   background:#000;
   opacity: 0;
-  transition: opacity 0.5s ease-in;
+  transition: opacity 0.6s ease-in;
   will-change: opacity;
 }
 
 .loader {
   position:relative;
-  width:420px;
-  height:420px;
+  width:440px;
+  height:440px;
 }
 
 .logo {
   position:absolute;
-  width:180px;                    /* ← Сделали больше */
+  width:180px;
   top:50%;
   left:50%;
   transform: translate(-50%, -50%) scale(1);
@@ -77,18 +68,14 @@ body {
 // ===== CONFIG =====
 const ASPECT = 1920 / 1080;
 let unityReady = false;
-let animationStarted = false;   // когда начинаем fly → return → bounce
-let animationFinished = false;
+let phase = "out";           // out → hover → in → bounce
 let t = 0;
-let mode = "hover";             // начинаем сразу с парения
-
-let floatStrength = 0.5;
+let floatStrength = 0.4;
 
 // ===== ELEMENTS =====
 const cover = document.getElementById("loading-cover");
 const canvas = document.getElementById("unity-canvas");
 const logo = document.getElementById("logo");
-const loader = document.getElementById("loader");
 
 // ===== RESIZE =====
 function resizeCanvas() {
@@ -106,16 +93,16 @@ function resizeCanvas() {
 
 // ===== CIRCLES =====
 const COUNT = 9;
-const MIN_R = 95, MAX_R = 165;   // чуть дальше от центра из-за большего логотипа
+const MIN_R = 95, MAX_R = 170;
 let circles = [];
 
 for (let i = 0; i < COUNT; i++) {
   let el = document.createElement("div");
   el.className = "circle";
-  loader.appendChild(el);
+  document.getElementById("loader").appendChild(el);
   circles.push({
     el: el,
-    x: 0, y: 0,
+    tx: 0, ty: 0,      // target position
     offset: Math.random() * Math.PI * 2
   });
 }
@@ -124,8 +111,8 @@ function regen() {
   for (let c of circles) {
     let a = Math.random() * Math.PI * 2;
     let r = MIN_R + Math.random() * (MAX_R - MIN_R);
-    c.x = Math.cos(a) * r;
-    c.y = Math.sin(a) * r;
+    c.tx = Math.cos(a) * r;
+    c.ty = Math.sin(a) * r;
   }
 }
 
@@ -143,70 +130,77 @@ function loop(now) {
 
   const time = now * 0.002;
 
-  // === ЛОГИКА РЕЖИМОВ ===
-  if (unityReady && !animationStarted) {
-    animationStarted = true;
-    mode = "fly";
+  // Phase logic
+  if (phase === "out" && t > 1.2) {
+    phase = "hover";
     t = 0;
   }
 
-  if (animationStarted) {
-    if (mode === "fly" && t > 1.0)     { mode = "return"; t = 0; }
-    if (mode === "return" && t > 1.0)  { mode = "bounce"; t = 0; }
-    if (mode === "bounce" && t > 0.65) {
-      animationFinished = true;
-      checkShowGame();
-    }
+  if (phase === "hover" && unityReady) {
+    phase = "in";
+    t = 0;
   }
 
-  // Плавный lerp силы парения
-  let targetStrength = 1.15;
-  if (mode === "fly" || mode === "return") targetStrength = 0.6;
-  if (mode === "bounce") targetStrength = 0.15;
+  if (phase === "in" && t > 1.25) {
+    phase = "bounce";
+    t = 0;
+  }
 
-  floatStrength += (targetStrength - floatStrength) * (14 * dt);
+  if (phase === "bounce" && t > 0.68) {
+    cover.style.opacity = "0";
+    setTimeout(() => {
+      cover.style.display = "none";
+      canvas.style.opacity = "1";
+    }, 650);
+  }
+
+  // Smooth float strength
+  let targetFloat = (phase === "hover") ? 1.18 : 0.45;
+  floatStrength += (targetFloat - floatStrength) * (12 * dt);
 
   for (let c of circles) {
     let baseX = 0, baseY = 0, alpha = 1;
 
-    if (mode === "fly") {
-      const k = easeOut(t);
-      baseX = c.x * k;
-      baseY = c.y * k;
-      alpha = Math.min(t * 1.8, 1);
-    } 
-    else if (mode === "return") {
-      const k = 1 - easeIn(t);
-      baseX = c.x * k;
-      baseY = c.y * k;
-      alpha = 1;
-    } 
-    else if (mode === "bounce") {
-      baseX = 0;
-      baseY = 0;
-      alpha = Math.max(1 - (t * 4), 0);
+    if (phase === "out") {
+      const k = easeOut(Math.min(t / 1.15, 1));
+      baseX = c.tx * k;
+      baseY = c.ty * k;
+      alpha = k;
     }
-    // в hover — baseX/Y = 0 (круги уже на позиции парения)
+    else if (phase === "hover") {
+      baseX = c.tx;
+      baseY = c.ty;
+      alpha = 1;
+    }
+    else if (phase === "in") {
+      const k = 1 - easeIn(Math.min(t / 1.2, 1));
+      baseX = c.tx * k;
+      baseY = c.ty * k;
+      alpha = Math.max(0, k * (1.3 - t * 1.5));   // сильный fade out
+    }
+    else if (phase === "bounce") {
+      alpha = 0;
+    }
 
-    const floatX = Math.sin(time + c.offset) * 5.2;
-    const floatY = Math.cos(time + c.offset) * 5.2;
+    const fx = Math.sin(time + c.offset) * 5.4;
+    const fy = Math.cos(time + c.offset) * 5.4;
 
-    const x = baseX + floatX * floatStrength;
-    const y = baseY + floatY * floatStrength;
+    const x = baseX + fx * floatStrength;
+    const y = baseY + fy * floatStrength;
 
     c.el.style.transform = `translate(-50%, -50%) translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`;
     c.el.style.opacity = alpha;
   }
 
-  // === МЯГКИЙ БАУНС ЛОГО ===
-  if (mode === "bounce") {
+  // Soft bounce logo
+  if (phase === "bounce") {
     let s = 1;
-    if (t < 0.25) {
-      s = 1 + (t / 0.25) * 0.55;           // мягкий подъём
-    } else if (t < 0.55) {
-      s = 1.55 - ((t - 0.25) / 0.30) * 0.62; // плавный возврат
+    if (t < 0.24) {
+      s = 1 + (t / 0.24) * 0.48;
+    } else if (t < 0.53) {
+      s = 1.48 - ((t - 0.24) / 0.29) * 0.55;
     } else {
-      s = 0.93 + ((t - 0.55) / 0.10) * 0.07; // лёгкая осадка
+      s = 0.93 + ((t - 0.53) / 0.15) * 0.07;
     }
     logo.style.transform = `translate(-50%, -50%) scale(${s.toFixed(3)})`;
   } else {
@@ -214,17 +208,6 @@ function loop(now) {
   }
 
   requestAnimationFrame(loop);
-}
-
-// ===== SHOW GAME =====
-function checkShowGame() {
-  if (unityReady && animationFinished) {
-    cover.style.opacity = "0";
-    setTimeout(() => {
-      cover.style.display = "none";
-      canvas.style.opacity = "1";
-    }, 600);
-  }
 }
 
 // ===== UNITY =====
@@ -242,7 +225,6 @@ script.onload = () => {
   createUnityInstance(canvas, config, () => {})
   .then(() => {
     unityReady = true;
-    // Анимация fly начнётся автоматически в loop()
   })
   .catch(err => console.error("Unity load error:", err));
 };
