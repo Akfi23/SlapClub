@@ -10,20 +10,10 @@
 body {
   margin:0;
   overflow:hidden;
-
-  /* 🔥 glow фон */
-  background: radial-gradient(circle at center,
-    #0a1f3d 0%,
-    #050b1a 40%,
-    #000 80%);
+  background:#000;
 }
 
-/* UNITY */
-#unity-canvas {
-  position:absolute;
-}
-
-/* LOADER */
+/* мягкий glow поверх */
 #loading-cover {
   position:fixed;
   inset:0;
@@ -31,6 +21,19 @@ body {
   justify-content:center;
   align-items:center;
   z-index:999;
+
+  background:
+    radial-gradient(circle at center,
+      rgba(30,80,180,0.25) 0%,
+      rgba(10,20,50,0.15) 30%,
+      rgba(0,0,0,0) 70%),
+    #000;
+}
+
+/* UNITY */
+#unity-canvas {
+  position:absolute;
+  background:#000;
 }
 
 .loader {
@@ -39,7 +42,7 @@ body {
   height:400px;
 }
 
-/* 🔥 LOGO */
+/* LOGO */
 .logo {
   position:absolute;
   width:120px;
@@ -54,12 +57,11 @@ body {
   position:absolute;
   width:18px;
   height:18px;
-  background:#3fa9ff;
+  background:#4fc3ff;
   border-radius:50%;
   top:50%;
   left:50%;
-
-  transform:translate3d(-50%,-50%,0);
+  transform:translate(-50%,-50%);
   opacity:0;
 
   will-change: transform, opacity;
@@ -118,7 +120,7 @@ for(let i=0;i<COUNT;i++){
   circles.push({
     el,
     x:0,y:0,
-    phase:Math.random()*6.28
+    offset:Math.random()*6.28
   });
 }
 
@@ -131,9 +133,9 @@ function regen(){
   }
 }
 
-// easing
-const easeOut=t=>1-(1-t)*(1-t)*(1-t);
-const easeIn=t=>t*t*t;
+// easing (вернул нормальные)
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const easeIn = t => t * t * t;
 
 // ===== LOOP =====
 let last=performance.now();
@@ -144,7 +146,6 @@ function loop(now){
 
   t+=dt;
 
-  // state switch
   if(mode==="fly" && t>1){
     mode="hover";
   }
@@ -155,6 +156,11 @@ function loop(now){
   }
 
   if(mode==="return" && t>1){
+    mode="bounce";
+    t=0;
+  }
+
+  if(mode==="bounce" && t>0.5){
     hide();
     return;
   }
@@ -172,44 +178,60 @@ function loop(now){
       alpha=t;
     }
 
-    if(mode==="hover"){
+    else if(mode==="hover"){
       baseX=c.x;
       baseY=c.y;
+      alpha=1;
     }
 
-    if(mode==="return"){
-      let k=1-easeIn(t);
+    else if(mode==="return"){
+      let k=1 - easeIn(t);
       baseX=c.x*k;
       baseY=c.y*k;
-
-      bounceLogo(t);
+      alpha=1;
     }
 
-    let floatX=Math.sin(time+c.phase)*4;
-    let floatY=Math.cos(time+c.phase)*4;
+    else if(mode==="bounce"){
+      baseX=0;
+      baseY=0;
+      alpha=0;
+    }
 
-    let strength=(mode==="hover")?1:0.5;
+    // парение (как было — плавное)
+    let floatX=Math.sin(time + c.offset)*5;
+    let floatY=Math.cos(time + c.offset)*5;
 
-    let x=baseX+floatX*strength;
-    let y=baseY+floatY*strength;
+    let strength = (mode==="hover") ? 1 : 0.4;
+
+    let x=baseX + floatX*strength;
+    let y=baseY + floatY*strength;
 
     c.el.style.transform =
-      `translate3d(calc(-50% + ${x}px), calc(-50% + ${y}px), 0)`;
+      `translate(-50%,-50%) translate(${x}px,${y}px)`;
 
     c.el.style.opacity=alpha;
   }
 
+  // 👉 НОРМАЛЬНЫЙ БОУНС ЛОГО
+  if(mode==="bounce"){
+    let s;
+
+    if(t < 0.3) {
+      s = 1 + t * 0.6;   // сильный ап
+    }
+    else {
+      s = 1.18 - (t - 0.3) * 0.6; // возврат
+    }
+
+    logo.style.transform =
+      `translate(-50%,-50%) scale(${s})`;
+  }
+  else {
+    logo.style.transform =
+      `translate(-50%,-50%) scale(1)`;
+  }
+
   requestAnimationFrame(loop);
-}
-
-// ===== BOUNCE =====
-function bounceLogo(t){
-  let s;
-  if(t<0.5) s=1+t*0.3;
-  else s=1.15-(t-0.5)*0.5;
-
-  logo.style.transform =
-    `translate(-50%,-50%) scale(${s})`;
 }
 
 // ===== HIDE =====
