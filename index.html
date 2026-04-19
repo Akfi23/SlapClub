@@ -3,7 +3,7 @@
 
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Slap Club</title>
 
@@ -11,26 +11,21 @@
 body {
   margin: 0;
   overflow: hidden;
-  width: 100vw;
-  height: 100vh;
   background: #000;
 }
 
-/* ===== UNITY ===== */
-
+/* UNITY */
 #unity-container {
   width: 100vw;
   height: 100vh;
-  position: relative;
 }
 
 #unity-canvas {
-  background: #000;
   position: absolute;
+  background: #000;
 }
 
-/* ===== LOADER ===== */
-
+/* LOADER */
 #loading-cover {
   position: fixed;
   inset: 0;
@@ -43,98 +38,31 @@ body {
 
 .loader {
   position: relative;
-  width: 300px;
-  height: 300px;
+  width: 400px;
+  height: 400px;
 }
 
-/* квадрат */
 .square {
   position: absolute;
-  width: 60px;
-  height: 60px;
+  width: 70px;
+  height: 70px;
   background: #4CAF50;
   border-radius: 10px;
-
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(1);
-
-  animation: squareBounce 4s infinite ease-in-out;
+  transform: translate(-50%, -50%);
 }
 
-/* круги */
 .circle {
   position: absolute;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   background: #FF5722;
   border-radius: 50%;
-
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) translate(0,0);
+  transform: translate(-50%, -50%);
   opacity: 0;
-
-  animation: move 4s infinite ease-in-out;
-}
-
-/* позиции */
-.c1 { --x: 0px;   --y: -110px; }
-.c2 { --x: 80px;  --y: -80px; }
-.c3 { --x: 110px; --y: 0px; }
-.c4 { --x: 80px;  --y: 80px; }
-.c5 { --x: 0px;   --y: 110px; }
-.c6 { --x: -80px; --y: 80px; }
-.c7 { --x: -110px;--y: 0px; }
-.c8 { --x: -80px; --y: -80px; }
-.c9 { --x: 40px;  --y: 40px; }
-
-/* движение */
-@keyframes move {
-
-  0% {
-    transform: translate(-50%, -50%) translate(0,0);
-    opacity: 0;
-  }
-
-  25% {
-    transform: translate(-50%, -50%) translate(var(--x), var(--y));
-    opacity: 1;
-  }
-
-  50% {
-    transform: translate(-50%, -50%) translate(var(--x), var(--y)) translate(5px, -5px);
-  }
-
-  60% {
-    transform: translate(-50%, -50%) translate(var(--x), var(--y)) translate(-5px, 5px);
-  }
-
-  85% {
-    transform: translate(-50%, -50%) translate(0,0);
-    opacity: 1;
-  }
-
-  100% {
-    transform: translate(-50%, -50%) translate(0,0);
-    opacity: 0;
-  }
-}
-
-/* bounce */
-@keyframes squareBounce {
-
-  0%, 70%, 100% {
-    transform: translate(-50%, -50%) scale(1);
-  }
-
-  80% {
-    transform: translate(-50%, -50%) scale(1.2);
-  }
-
-  90% {
-    transform: translate(-50%, -50%) scale(0.9);
-  }
 }
 </style>
 </head>
@@ -145,24 +73,14 @@ body {
   <canvas id="unity-canvas"></canvas>
 </div>
 
-<!-- LOADER -->
 <div id="loading-cover">
-  <div class="loader">
-    <div class="square"></div>
-
-    <div class="circle c1"></div>
-    <div class="circle c2"></div>
-    <div class="circle c3"></div>
-    <div class="circle c4"></div>
-    <div class="circle c5"></div>
-    <div class="circle c6"></div>
-    <div class="circle c7"></div>
-    <div class="circle c8"></div>
-    <div class="circle c9"></div>
+  <div class="loader" id="loader">
+    <div class="square" id="square"></div>
   </div>
 </div>
 
 <script>
+// ===== RESIZE =====
 const GAME_ASPECT = 1920 / 1080;
 
 function resizeCanvas() {
@@ -188,6 +106,134 @@ function resizeCanvas() {
   canvas.style.transform = "translate(-50%, -50%)";
 }
 
+// ===== LOADER ANIMATION =====
+
+const loader = document.getElementById("loader");
+const square = document.getElementById("square");
+
+const COUNT = 9;
+const MIN_RADIUS = 80;
+const MAX_RADIUS = 140;
+
+let circles = [];
+
+// create circles
+for (let i = 0; i < COUNT; i++) {
+  const el = document.createElement("div");
+  el.className = "circle";
+  loader.appendChild(el);
+
+  circles.push({
+    el,
+    x: 0,
+    y: 0,
+    floatOffset: Math.random() * 1000
+  });
+}
+
+function regenerateTargets() {
+  circles.forEach(c => {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = MIN_RADIUS + Math.random() * (MAX_RADIUS - MIN_RADIUS);
+
+    c.x = Math.cos(angle) * radius;
+    c.y = Math.sin(angle) * radius;
+  });
+}
+
+// easing
+function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+function easeIn(t) { return t * t * t; }
+
+function smoothstep(a, b, x) {
+  x = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return x * x * (3 - 2 * x);
+}
+
+// bounce
+function bounceSquare(t) {
+  let scale;
+
+  if (t < 0.5) scale = 1 + t * 0.3;
+  else scale = 1.15 - (t - 0.5) * 0.5;
+
+  square.style.transform =
+    `translate(-50%, -50%) scale(${scale})`;
+}
+
+// loop
+let time = 0;
+
+function animate() {
+  time += 0.016;
+
+  let phase;
+
+  if (time < 1) phase = 0;
+  else if (time < 2.5) phase = 1;
+  else if (time < 3.5) phase = 2;
+  else if (time < 4.5) phase = 3;
+  else {
+    time = 0;
+    regenerateTargets();
+  }
+
+  circles.forEach(c => {
+
+    let baseX = 0;
+    let baseY = 0;
+    let alpha = 1;
+
+    if (phase === 0) {
+      let t = time / 1;
+      baseX = c.x * easeOut(t);
+      baseY = c.y * easeOut(t);
+      alpha = t;
+    }
+    else if (phase === 1) {
+      baseX = c.x;
+      baseY = c.y;
+    }
+    else if (phase === 2) {
+      let t = (time - 2.5);
+      let k = 1 - easeIn(t);
+      baseX = c.x * k;
+      baseY = c.y * k;
+
+      bounceSquare(t);
+    }
+    else {
+      alpha = 0;
+      square.style.transform = "translate(-50%, -50%) scale(1)";
+    }
+
+    let floatStrength = 0;
+
+    if (phase === 0)
+      floatStrength = smoothstep(0.6, 1.0, time);
+    else if (phase === 1)
+      floatStrength = 1;
+    else if (phase === 2)
+      floatStrength = 1 - smoothstep(0.0, 0.4, time - 2.5);
+
+    let floatX = Math.sin(time * 2 + c.floatOffset) * 5;
+    let floatY = Math.cos(time * 2 + c.floatOffset) * 5;
+
+    let x = baseX + floatX * floatStrength;
+    let y = baseY + floatY * floatStrength;
+
+    c.el.style.transform =
+      `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+
+    c.el.style.opacity = alpha;
+  });
+
+  requestAnimationFrame(animate);
+}
+
+regenerateTargets();
+animate();
+
 // ===== UNITY LOAD =====
 
 const buildUrl = "Build";
@@ -198,13 +244,10 @@ const config = {
   frameworkUrl: buildUrl + "/SC.framework.js.unityweb",
   codeUrl: buildUrl + "/SC.wasm.unityweb",
   streamingAssetsUrl: "StreamingAssets",
-  companyName: "aaaaa",
-  productName: "Slap Club",
-  productVersion: "1.0",
 };
 
-const canvas = document.querySelector("#unity-canvas");
-const loadingCover = document.querySelector("#loading-cover");
+const canvas = document.getElementById("unity-canvas");
+const loadingCover = document.getElementById("loading-cover");
 
 const script = document.createElement("script");
 script.src = loaderUrl;
@@ -212,7 +255,6 @@ script.src = loaderUrl;
 script.onload = () => {
   createUnityInstance(canvas, config, () => {})
     .then(() => {
-      // скрываем loader
       loadingCover.style.display = "none";
       resizeCanvas();
     })
@@ -221,7 +263,6 @@ script.onload = () => {
 
 document.body.appendChild(script);
 
-// resize events
 window.addEventListener("resize", resizeCanvas);
 window.addEventListener("load", resizeCanvas);
 </script>
