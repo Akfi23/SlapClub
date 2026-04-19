@@ -24,7 +24,7 @@ body {
       rgba(10,20,50,0.15) 30%,
       rgba(0,0,0,0) 70%),
     #000;
-  transition: opacity 0.6s ease-out;
+  transition: opacity 0.65s ease-out;
   will-change: opacity;
 }
 
@@ -44,7 +44,7 @@ body {
 
 .logo {
   position:absolute;
-  width:180px;                    /* ← Сделали больше */
+  width:180px;
   top:50%;
   left:50%;
   transform: translate(-50%, -50%) scale(1);
@@ -77,12 +77,11 @@ body {
 // ===== CONFIG =====
 const ASPECT = 1920 / 1080;
 let unityReady = false;
-let animationStarted = false;   // когда начинаем fly → return → bounce
-let animationFinished = false;
+let animationPhase = "out";        // "out" → "hover" → "in" → "bounce"
 let t = 0;
-let mode = "hover";             // начинаем сразу с парения
+let floatStrength = 0.0;
 
-let floatStrength = 0.5;
+const logoSize = 180;              // размер логотипа
 
 // ===== ELEMENTS =====
 const cover = document.getElementById("loading-cover");
@@ -106,7 +105,7 @@ function resizeCanvas() {
 
 // ===== CIRCLES =====
 const COUNT = 9;
-const MIN_R = 95, MAX_R = 165;   // чуть дальше от центра из-за большего логотипа
+const MIN_R = 95, MAX_R = 170;
 let circles = [];
 
 for (let i = 0; i < COUNT; i++) {
@@ -115,17 +114,22 @@ for (let i = 0; i < COUNT; i++) {
   loader.appendChild(el);
   circles.push({
     el: el,
-    x: 0, y: 0,
+    targetX: 0,
+    targetY: 0,
+    currentX: 0,
+    currentY: 0,
     offset: Math.random() * Math.PI * 2
   });
 }
 
-function regen() {
+function regenTargets() {
   for (let c of circles) {
     let a = Math.random() * Math.PI * 2;
     let r = MIN_R + Math.random() * (MAX_R - MIN_R);
-    c.x = Math.cos(a) * r;
-    c.y = Math.sin(a) * r;
+    c.targetX = Math.cos(a) * r;
+    c.targetY = Math.sin(a) * r;
+    c.currentX = 0;           // начинаем из центра
+    c.currentY = 0;
   }
 }
 
@@ -143,70 +147,78 @@ function loop(now) {
 
   const time = now * 0.002;
 
-  // === ЛОГИКА РЕЖИМОВ ===
-  if (unityReady && !animationStarted) {
-    animationStarted = true;
-    mode = "fly";
+  // === ЛОГИКА ФАЗ ===
+  if (unityReady && animationPhase === "hover") {
+    animationPhase = "in";
     t = 0;
   }
 
-  if (animationStarted) {
-    if (mode === "fly" && t > 1.0)     { mode = "return"; t = 0; }
-    if (mode === "return" && t > 1.0)  { mode = "bounce"; t = 0; }
-    if (mode === "bounce" && t > 0.65) {
-      animationFinished = true;
-      checkShowGame();
-    }
+  if (animationPhase === "out" && t > 1.1) {
+    animationPhase = "hover";
+    t = 0;
+  }
+  if (animationPhase === "in" && t > 1.1) {
+    animationPhase = "bounce";
+    t = 0;
+  }
+  if (animationPhase === "bounce" && t > 0.65) {
+    cover.style.opacity = "0";
+    setTimeout(() => {
+      cover.style.display = "none";
+      canvas.style.opacity = "1";
+    }, 650);
   }
 
-  // Плавный lerp силы парения
-  let targetStrength = 1.15;
-  if (mode === "fly" || mode === "return") targetStrength = 0.6;
-  if (mode === "bounce") targetStrength = 0.15;
-
-  floatStrength += (targetStrength - floatStrength) * (14 * dt);
+  // Плавная сила парения
+  let targetFloat = (animationPhase === "hover") ? 1.15 : 0.4;
+  floatStrength += (targetFloat - floatStrength) * (12 * dt);
 
   for (let c of circles) {
     let baseX = 0, baseY = 0, alpha = 1;
 
-    if (mode === "fly") {
-      const k = easeOut(t);
-      baseX = c.x * k;
-      baseY = c.y * k;
-      alpha = Math.min(t * 1.8, 1);
+    if (animationPhase === "out") {
+      const k = easeOut(Math.min(t * 1.1, 1));
+      baseX = c.targetX * k;
+      baseY = c.targetY * k;
+      alpha = k;
     } 
-    else if (mode === "return") {
-      const k = 1 - easeIn(t);
-      baseX = c.x * k;
-      baseY = c.y * k;
+    else if (animationPhase === "hover") {
+      baseX = c.targetX;
+      baseY = c.targetY;
       alpha = 1;
     } 
-    else if (mode === "bounce") {
+    else if (animationPhase === "in") {
+      const k = 1 - easeIn(Math.min(t * 1.1, 1));
+      baseX = c.targetX * k;
+      baseY = c.targetY * k;
+      alpha = k * (1 - Math.min(t * 1.8, 1));   // дополнительный fade out
+    } 
+    else if (animationPhase === "bounce") {
       baseX = 0;
       baseY = 0;
-      alpha = Math.max(1 - (t * 4), 0);
+      alpha = 0;
     }
-    // в hover — baseX/Y = 0 (круги уже на позиции парения)
 
-    const floatX = Math.sin(time + c.offset) * 5.2;
-    const floatY = Math.cos(time + c.offset) * 5.2;
+    // Парение
+    const fx = Math.sin(time + c.offset) * 5.3;
+    const fy = Math.cos(time + c.offset) * 5.3;
 
-    const x = baseX + floatX * floatStrength;
-    const y = baseY + floatY * floatStrength;
+    const x = baseX + fx * floatStrength;
+    const y = baseY + fy * floatStrength;
 
     c.el.style.transform = `translate(-50%, -50%) translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`;
     c.el.style.opacity = alpha;
   }
 
   // === МЯГКИЙ БАУНС ЛОГО ===
-  if (mode === "bounce") {
+  if (animationPhase === "bounce") {
     let s = 1;
-    if (t < 0.25) {
-      s = 1 + (t / 0.25) * 0.55;           // мягкий подъём
-    } else if (t < 0.55) {
-      s = 1.55 - ((t - 0.25) / 0.30) * 0.62; // плавный возврат
+    if (t < 0.24) {
+      s = 1 + (t / 0.24) * 0.48;
+    } else if (t < 0.52) {
+      s = 1.48 - ((t - 0.24) / 0.28) * 0.55;
     } else {
-      s = 0.93 + ((t - 0.55) / 0.10) * 0.07; // лёгкая осадка
+      s = 0.93 + ((t - 0.52) / 0.13) * 0.07;
     }
     logo.style.transform = `translate(-50%, -50%) scale(${s.toFixed(3)})`;
   } else {
@@ -216,44 +228,4 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-// ===== SHOW GAME =====
-function checkShowGame() {
-  if (unityReady && animationFinished) {
-    cover.style.opacity = "0";
-    setTimeout(() => {
-      cover.style.display = "none";
-      canvas.style.opacity = "1";
-    }, 600);
-  }
-}
-
-// ===== UNITY =====
-const buildUrl = "Build";
-const script = document.createElement("script");
-script.src = buildUrl + "/SC.loader.js";
-
-const config = {
-  dataUrl: buildUrl + "/SC.data.unityweb",
-  frameworkUrl: buildUrl + "/SC.framework.js.unityweb",
-  codeUrl: buildUrl + "/SC.wasm.unityweb"
-};
-
-script.onload = () => {
-  createUnityInstance(canvas, config, () => {})
-  .then(() => {
-    unityReady = true;
-    // Анимация fly начнётся автоматически в loop()
-  })
-  .catch(err => console.error("Unity load error:", err));
-};
-
-document.body.appendChild(script);
-
-// ===== START =====
-regen();
-resizeCanvas();
-requestAnimationFrame(loop);
-window.addEventListener("resize", resizeCanvas);
-</script>
-</body>
-</html>
+// ===== UNITY
