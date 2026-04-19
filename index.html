@@ -25,6 +25,7 @@ body {
       rgba(0,0,0,0) 70%),
     #000;
   transition: opacity 0.6s ease-out;
+  will-change: opacity;
 }
 
 #unity-canvas {
@@ -48,7 +49,7 @@ body {
   left:50%;
   transform: translate(-50%, -50%) scale(1);
   will-change: transform;
-  transition: transform 0.08s linear; /* для плавности баунса */
+  /* УБРАЛИ transition — он конфликтовал с JS и вызывал дёргание */
 }
 
 .circle {
@@ -80,6 +81,7 @@ let unityReady = false;
 let animationFinished = false;
 let t = 0;
 let mode = "fly";
+let floatStrength = 0.48;           // ← плавный lerp для устранения дёргания
 
 // ===== ELEMENTS =====
 const cover = document.getElementById("loading-cover");
@@ -138,7 +140,7 @@ function loop(now) {
   last = now;
   t += dt;
 
-  // Режимы анимации
+  // Режимы (полностью доигрываем анимацию)
   if (mode === "fly" && t > 1.0)      { mode = "hover"; t = 0; }
   if (mode === "hover" && t > 1.4)    { mode = "return"; t = 0; }
   if (mode === "return" && t > 1.0)   { mode = "bounce"; t = 0; }
@@ -149,6 +151,10 @@ function loop(now) {
 
   const time = now * 0.002;
 
+  // === ПЛАВНЫЙ LERP СИЛЫ ПАРЕНИЯ — УБИРАЕТ ДЁРГАНИЕ ===
+  const targetStrength = (mode === "hover") ? 1.12 : (mode === "bounce" ? 0.1 : 0.48);
+  floatStrength += (targetStrength - floatStrength) * (12 * dt);   // 12 = скорость сглаживания
+
   for (let c of circles) {
     let baseX = 0, baseY = 0, alpha = 1;
 
@@ -157,41 +163,43 @@ function loop(now) {
       baseX = c.x * k;
       baseY = c.y * k;
       alpha = Math.min(t * 1.6, 1);
-    } else if (mode === "hover") {
+    } 
+    else if (mode === "hover") {
       baseX = c.x;
       baseY = c.y;
       alpha = 1;
-    } else if (mode === "return") {
+    } 
+    else if (mode === "return") {
       const k = 1 - easeIn(t);
       baseX = c.x * k;
       baseY = c.y * k;
       alpha = 1;
-    } else if (mode === "bounce") {
+    } 
+    else if (mode === "bounce") {
       baseX = 0;
       baseY = 0;
-      alpha = Math.max(1 - t * 3, 0);   // быстро гасим круги
+      alpha = Math.max(1 - t * 3.5, 0);
     }
 
     const floatX = Math.sin(time + c.offset) * 5;
     const floatY = Math.cos(time + c.offset) * 5;
-    const strength = (mode === "hover") ? 1.1 : 0.45;
 
-    const x = baseX + floatX * strength;
-    const y = baseY + floatY * strength;
+    const x = baseX + floatX * floatStrength;
+    const y = baseY + floatY * floatStrength;
 
     c.el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
     c.el.style.opacity = alpha;
   }
 
-  // === БАУНС ЛОГО (исправленный и красивый) ===
+  // === БАУНС ЛОГО (без CSS transition — чистый JS) ===
   if (mode === "bounce") {
     let s = 1;
     if (t < 0.22) {
-      s = 1 + (t / 0.22) * 0.85;           // сильный взлёт
+      s = 1 + (t / 0.22) * 0.85;
     } else if (t < 0.48) {
-      s = 1.85 - ((t - 0.22) / 0.26) * 0.92; // мягкий возврат вниз
+      s = 1.85 - ((t - 0.22) / 0.26) * 0.92;
     } else {
-      s = 0.93 + ((t - 0.48) / 0.20) * 0.07; // лёгкая осадка
+      s = 0.93 + ((t - 0.48) / 0.20) * 0.07;
     }
     logo.style.transform = `translate(-50%, -50%) scale(${s.toFixed(3)})`;
   } else {
@@ -205,7 +213,6 @@ function loop(now) {
 function checkShowGame() {
   if (unityReady && animationFinished) {
     cover.style.opacity = "0";
-
     setTimeout(() => {
       cover.style.display = "none";
       canvas.style.opacity = "1";
@@ -213,7 +220,7 @@ function checkShowGame() {
   }
 }
 
-// ===== UNITY =====
+// ===== UNITY (начинает грузиться сразу, но показывается только после анимации) =====
 const buildUrl = "Build";
 const script = document.createElement("script");
 script.src = buildUrl + "/SC.loader.js";
@@ -225,9 +232,7 @@ const config = {
 };
 
 script.onload = () => {
-  createUnityInstance(canvas, config, (progress) => {
-    // Здесь можно добавить свой прогресс-бар, если захочешь позже
-  })
+  createUnityInstance(canvas, config, () => {})
   .then(() => {
     unityReady = true;
     checkShowGame();
