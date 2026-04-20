@@ -34,32 +34,47 @@
     position: relative;
     width: 460px;
     height: 460px;
+    transform-origin: center center;
     z-index: 2;
   }
 
-  /* Центральный glow */
+  /* Основной центральный glow (большой) */
   #center-glow {
     position: absolute;
     top: 50%;
     left: 50%;
     width: 320px;
     height: 320px;
-    background: radial-gradient(circle, rgba(80, 200, 255, 0.65) 0%, rgba(80, 200, 255, 0.12) 45%, transparent 75%);
+    background: radial-gradient(circle, rgba(80, 200, 255, 0.68) 0%, rgba(80, 200, 255, 0.14) 48%, transparent 78%);
     transform: translate(-50%, -50%);
     pointer-events: none;
-    z-index: 1;                    /* ниже логотипа, выше квадратов */
-    filter: blur(25px);
-    opacity: 0.75;
-    will-change: opacity, transform;
+    z-index: 1;
+    filter: blur(28px);
+    will-change: transform, opacity;
+  }
+
+  /* Второй маленький glow (сзади логотипа, динамический) */
+  #secondary-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 210px;
+    height: 210px;
+    background: radial-gradient(circle, rgba(120, 225, 255, 0.75) 0%, rgba(100, 210, 255, 0.18) 42%, transparent 72%);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 2;                    /* между основным glow и логотипом */
+    filter: blur(22px);
+    will-change: transform, opacity;
   }
 
   .logo {
     position: absolute;
-    width: 180px;
+    width: 250px;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) scale(1);
-    z-index: 3;                    /* логотип всегда сверху */
+    z-index: 3;                    /* всегда сверху */
     will-change: transform;
   }
 
@@ -73,7 +88,7 @@
     transform: translate(-50%, -50%);
     will-change: transform, opacity;
     box-shadow: 0 0 12px #4fc3ff;
-    z-index: 0;                    /* квадраты под всем */
+    z-index: 0;
   }
 </style>
 </head>
@@ -82,6 +97,7 @@
 <div id="loading-cover">
   <div class="loader" id="loader">
     <div id="center-glow"></div>
+    <div id="secondary-glow"></div>
     <img src="logo.png" class="logo" id="logo">
   </div>
 </div>
@@ -89,12 +105,15 @@
 <script>
 // ===== CONFIG =====
 const TARGET_ASPECT = 1920 / 1080;
+const DESIGN_SIZE = 460;           // базовый размер loader (всё масштабируется от него)
 
 let unityReady = false;
 let phase = "out";
 let t = 0;
 let floatStrength = 0.45;
-let glowPulse = 0;        // для пульсации glow
+let glowPulse = 0;
+let secondaryOffsetX = 0;
+let secondaryOffsetY = 0;
 
 const OUT_DURATION = 1.2;
 const MIN_HOVER_TIME_AFTER_READY = 1.15;
@@ -106,17 +125,25 @@ const LERP_K = 18;
 // ===== ELEMENTS =====
 const cover = document.getElementById("loading-cover");
 const canvas = document.getElementById("unity-canvas");
+const loader = document.getElementById("loader");
 const logo = document.getElementById("logo");
 const centerGlow = document.getElementById("center-glow");
+const secondaryGlow = document.getElementById("secondary-glow");
 
-// ===== RESIZE (оставляем с devicePixelRatio) =====
+// ===== RESIZE: Unity + масштабирование всего загрузочного экрана =====
 function resizeCanvas() {
   const screenW = window.innerWidth;
   const screenH = window.innerHeight;
   const dpr = window.devicePixelRatio || 1;
 
-  let cssW, cssH;
+  // 1. Масштабируем весь loader (квадраты + оба glow + логотип)
+  const scaleX = (screenW * 0.92) / DESIGN_SIZE;
+  const scaleY = (screenH * 0.92) / DESIGN_SIZE;
+  const loaderScale = Math.min(scaleX, scaleY, 1);   // не больше 1 (чтобы не растягивать на больших экранах)
+  loader.style.transform = `scale(${loaderScale.toFixed(4)})`;
 
+  // 2. Unity canvas (как было — строго 16:9)
+  let cssW, cssH;
   if (screenW / screenH > TARGET_ASPECT) {
     cssH = screenH;
     cssW = Math.floor(screenH * TARGET_ASPECT);
@@ -179,18 +206,20 @@ function loop(now) {
   last = now;
   t += dt;
   const globalTime = now * 0.0019;
-  glowPulse = (Math.sin(globalTime * 1.8) + 1) * 0.5;   // медленная пульсация 0..1
+
+  glowPulse = (Math.sin(globalTime * 1.8) + 1) * 0.5;
+
+  // Медленное движение второго glow (эффект динамической тепловой карты)
+  secondaryOffsetX = Math.sin(globalTime * 0.85) * 38 + Math.cos(globalTime * 1.35) * 22;
+  secondaryOffsetY = Math.cos(globalTime * 0.95) * 34 + Math.sin(globalTime * 1.1) * 19;
 
   // Phase management
   if (phase === "out" && t > OUT_DURATION) { phase = "hover"; t = 0; }
-
   if (phase === "hover" && unityReady && t >= MIN_HOVER_TIME_AFTER_READY) {
     phase = "in";
     t = 0;
   }
-
   if (phase === "in" && t > IN_DURATION) { phase = "bounce"; t = 0; }
-
   if (phase === "bounce" && t > BOUNCE_DURATION) {
     cover.style.opacity = "0";
     setTimeout(() => {
@@ -202,7 +231,7 @@ function loop(now) {
   const targetFloat = (phase === "hover" || phase === "out") ? 1.28 : 0.4;
   floatStrength += (targetFloat - floatStrength) * 11 * dt;
 
-  // Particles
+  // Particles (остаются за всем)
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
     let baseX = 0, baseY = 0, alpha = 1;
@@ -243,11 +272,15 @@ function loop(now) {
     p.el.style.opacity = alpha.toFixed(3);
   }
 
-  // Центральный glow — медленно пульсирует
-  const glowScale = 0.96 + glowPulse * 0.08;           // лёгкое масштабирование
-  const glowOpacity = 0.68 + glowPulse * 0.22;         // от 0.68 до 0.90
+  // Основной glow (пульсация)
+  const glowScale = 0.96 + glowPulse * 0.08;
+  const glowOpacity = 0.68 + glowPulse * 0.22;
   centerGlow.style.transform = `translate(-50%, -50%) scale(${glowScale.toFixed(3)})`;
   centerGlow.style.opacity = glowOpacity.toFixed(3);
+
+  // Второй маленький glow (движется за логотипом)
+  const secScale = 0.92 + glowPulse * 0.12;
+  secondaryGlow.style.transform = `translate(-50%, -50%) translate(${secondaryOffsetX.toFixed(1)}px, ${secondaryOffsetY.toFixed(1)}px) scale(${secScale.toFixed(3)})`;
 
   // Logo bounce
   if (phase === "bounce") {
@@ -255,7 +288,6 @@ function loop(now) {
     if (t < 0.22) scale = 1 + (t / 0.22) * 0.38;
     else if (t < 0.48) scale = 1.38 - ((t - 0.22) / 0.26) * 0.43;
     else scale = 0.95 + ((t - 0.48) / 0.14) * 0.06;
-
     logo.style.transform = `translate(-50%, -50%) scale(${scale.toFixed(3)})`;
   } else {
     logo.style.transform = `translate(-50%, -50%) scale(1)`;
