@@ -70,7 +70,7 @@
 
   .logo {
     position: absolute;
-    width: 250px;
+    width: 180px;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) scale(1);
@@ -78,16 +78,20 @@
     will-change: transform;
   }
 
-  /* Иконки вместо квадратов */
+  /* Иконки — перекрашиваем в цвет #4fc3ff */
   .particle {
     position: absolute;
-    width: 75px;               /* чуть больше, чем было у квадратов */
-    height: 75px;
+    width: 80px;
+    height: 80px;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     will-change: transform, opacity;
-    filter: brightness(1.15) drop-shadow(0 0 14px #4fc3ff);   /* свечение + цвет */
+    filter: 
+      brightness(1.25) 
+      saturate(1.8) 
+      hue-rotate(195deg)     /* перекрашивает белый в голубой #4fc3ff */
+      drop-shadow(0 0 16px #4fc3ff);
     z-index: 0;
   }
 </style>
@@ -138,7 +142,7 @@ function resizeCanvas() {
 
   const scaleX = (screenW * 0.92) / DESIGN_SIZE;
   const scaleY = (screenH * 0.92) / DESIGN_SIZE;
-  const loaderScale = Math.min(scaleX, scaleY, 1.05);   // чуть позволяем расти на больших экранах
+  const loaderScale = Math.min(scaleX, scaleY, 1.05);
 
   loader.style.transform = `scale(${loaderScale.toFixed(4)})`;
 
@@ -165,16 +169,16 @@ function resizeCanvas() {
   canvas.style.transform = "translate(-50%, -50%)";
 }
 
-// ===== PARTICLES → ИКОНКИ 1.png ... 9.png =====
+// ===== ИКОНКИ 1.png ... 9.png =====
 const COUNT = 9;
-const MIN_R = 115, MAX_R = 205;   // немного увеличил радиус для красивого разлёта
+const MIN_R = 115, MAX_R = 205;
 let particles = [];
 let currentPositions = [];
 
 for (let i = 1; i <= COUNT; i++) {
   const el = document.createElement("img");
   el.className = "particle";
-  el.src = `${i}.png`;                    // 1.png, 2.png ... 9.png
+  el.src = `${i}.png`;
   el.alt = `icon ${i}`;
   document.getElementById("loader").appendChild(el);
 
@@ -230,7 +234,6 @@ function loop(now) {
   const targetFloat = (phase === "hover" || phase === "out") ? 1.28 : 0.4;
   floatStrength += (targetFloat - floatStrength) * 11 * dt;
 
-  // Анимация иконок
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
     let baseX = 0, baseY = 0, alpha = 1;
