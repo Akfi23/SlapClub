@@ -10,7 +10,7 @@
     padding: 0;
     overflow: hidden;
     background: #000;
-    touch-action: none; /* улучшает поведение на тач-устройствах */
+    touch-action: none;
   }
 
   #unity-canvas {
@@ -18,7 +18,7 @@
     background: #000;
     opacity: 0;
     transition: opacity 0.8s ease-in;
-    image-rendering: crisp-edges; /* помогает на мобильных */
+    /* Убираем агрессивное crisp-edges, чтобы не усиливать лесенку */
   }
 
   #loading-cover {
@@ -71,7 +71,7 @@
 
 <script>
 // ===== CONFIG =====
-const TARGET_ASPECT = 1920 / 1080;   // строго 16:9
+const TARGET_ASPECT = 1920 / 1080;
 
 let unityReady = false;
 let phase = "out";
@@ -90,40 +90,40 @@ const cover = document.getElementById("loading-cover");
 const canvas = document.getElementById("unity-canvas");
 const logo = document.getElementById("logo");
 
-// ===== УЛУЧШЕННЫЙ RESIZE — главное исправление =====
+// ===== УЛУЧШЕННЫЙ RESIZE С devicePixelRatio =====
 function resizeCanvas() {
   const screenW = window.innerWidth;
   const screenH = window.innerHeight;
+  const dpr = window.devicePixelRatio || 1;   // ← главное исправление ряби
 
-  let canvasW, canvasH;
+  let cssW, cssH;
 
-  // Вычисляем максимальный размер, который помещается при соотношении 16:9
   if (screenW / screenH > TARGET_ASPECT) {
-    // Экран шире → ограничиваем по высоте (pillarbox — чёрные полосы слева/справа)
-    canvasH = screenH;
-    canvasW = Math.floor(screenH * TARGET_ASPECT);
+    cssH = screenH;
+    cssW = Math.floor(screenH * TARGET_ASPECT);
   } else {
-    // Экран уже → ограничиваем по ширине (letterbox — чёрные полосы сверху/снизу)
-    canvasW = screenW;
-    canvasH = Math.floor(screenW / TARGET_ASPECT);
+    cssW = screenW;
+    cssH = Math.floor(screenW / TARGET_ASPECT);
   }
 
-  // Применяем CSS-размер (видимый размер)
-  canvas.style.width = canvasW + "px";
-  canvas.style.height = canvasH + "px";
+  // CSS размер (видимый)
+  canvas.style.width = cssW + "px";
+  canvas.style.height = cssH + "px";
+
+  // Реальное разрешение рендера с учётом DPR
+  const renderW = Math.floor(cssW * dpr);
+  const renderH = Math.floor(cssH * dpr);
+
+  canvas.width = renderW;
+  canvas.height = renderH;
 
   // Центрируем
   canvas.style.left = "50%";
   canvas.style.top = "50%";
   canvas.style.transform = "translate(-50%, -50%)";
-
-  // Важно для Unity: устанавливаем реальное разрешение рендера
-  // Это решает проблему гигантского размера на мобильных
-  canvas.width = canvasW;
-  canvas.height = canvasH;
 }
 
-// ===== PARTICLES (оставил как было, только мелкие улучшения) =====
+// ===== PARTICLES (без изменений) =====
 const COUNT = 9;
 const MIN_R = 110, MAX_R = 200;
 let particles = [];
@@ -153,10 +153,9 @@ function initParticles() {
   }
 }
 
-// ===== EASING =====
 const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
 
-// ===== MAIN LOOP (без изменений по анимации) =====
+// ===== MAIN LOOP =====
 let last = performance.now();
 
 function loop(now) {
@@ -165,20 +164,14 @@ function loop(now) {
   t += dt;
   const globalTime = now * 0.0019;
 
-  if (phase === "out" && t > OUT_DURATION) {
-    phase = "hover";
-    t = 0;
-  }
+  if (phase === "out" && t > OUT_DURATION) { phase = "hover"; t = 0; }
 
   if (phase === "hover" && unityReady && t >= MIN_HOVER_TIME_AFTER_READY) {
     phase = "in";
     t = 0;
   }
 
-  if (phase === "in" && t > IN_DURATION) {
-    phase = "bounce";
-    t = 0;
-  }
+  if (phase === "in" && t > IN_DURATION) { phase = "bounce"; t = 0; }
 
   if (phase === "bounce" && t > BOUNCE_DURATION) {
     cover.style.opacity = "0";
@@ -231,7 +224,6 @@ function loop(now) {
     p.el.style.opacity = alpha.toFixed(3);
   }
 
-  // Лёгкий баунс логотипа
   if (phase === "bounce") {
     let scale = 1;
     if (t < 0.22) scale = 1 + (t / 0.22) * 0.38;
@@ -254,8 +246,7 @@ script.src = `${buildUrl}/SC.loader.js`;
 const config = {
   dataUrl: `${buildUrl}/SC.data.unityweb`,
   frameworkUrl: `${buildUrl}/SC.framework.js.unityweb`,
-  codeUrl: `${buildUrl}/SC.wasm.unityweb`,
-  // matchWebGLToCanvasSize оставляем по умолчанию true — Unity будет подстраиваться под canvas.width/height
+  codeUrl: `${buildUrl}/SC.wasm.unityweb`
 };
 
 script.onload = () => {
@@ -275,9 +266,7 @@ resizeCanvas();
 requestAnimationFrame(loop);
 
 window.addEventListener("resize", resizeCanvas);
-window.addEventListener("orientationchange", () => {
-  setTimeout(resizeCanvas, 100); // небольшая задержка после смены ориентации
-});
+window.addEventListener("orientationchange", () => setTimeout(resizeCanvas, 150));
 </script>
 </body>
 </html>
