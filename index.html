@@ -1,16 +1,79 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Slap Club</title>
+<style>
+body { margin:0; overflow:hidden; background:#000; }
+
+#loading-cover {
+  position:fixed;
+  inset:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  z-index:999;
+  background: radial-gradient(circle at center, rgba(30,80,180,0.25) 0%, rgba(10,20,50,0.15) 30%, rgba(0,0,0,0) 70%), #000;
+  transition: opacity 0.7s ease-out;
+  will-change: opacity;
+}
+
+#unity-canvas {
+  position:absolute;
+  background:#000;
+  opacity: 0;
+  transition: opacity 0.6s ease-in;
+  will-change: opacity;
+}
+
+.loader {
+  position:relative;
+  width:440px;
+  height:440px;
+}
+
+.logo {
+  position:absolute;
+  width:180px;
+  top:50%;
+  left:50%;
+  transform: translate(-50%, -50%) scale(1);
+  will-change: transform;
+}
+
+.circle {
+  position:absolute;
+  width:18px;
+  height:18px;
+  background:#4fc3ff;
+  border-radius:50%;
+  top:50%;
+  left:50%;
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+}
+</style>
+</head>
+<body>
+<canvas id="unity-canvas"></canvas>
+
+<div id="loading-cover">
+  <div class="loader" id="loader">
+    <img src="logo.png" class="logo" id="logo">
+  </div>
+</div>
+
 <script>
 // ===== CONFIG =====
 const ASPECT = 1920 / 1080;
-
 let unityReady = false;
-let phase = "out"; // out → hover → in → bounce → done
+let phase = "out";        // out → hover → in → bounce
 let t = 0;
-
 let floatStrength = 0.5;
-let last = performance.now();
 
-// чтобы гарантировать проигрывание in
-let returnStarted = false;
+// Для плавного перехода
+let currentPositions = [];
 
 // ===== ELEMENTS =====
 const cover = document.getElementById("loading-cover");
@@ -21,14 +84,8 @@ const logo = document.getElementById("logo");
 function resizeCanvas() {
   const w = innerWidth, h = innerHeight;
   let dw, dh;
-
-  if (w / h > ASPECT) {
-    dh = h;
-    dw = h * ASPECT;
-  } else {
-    dw = w;
-    dh = w / ASPECT;
-  }
+  if (w / h > ASPECT) { dh = h; dw = h * ASPECT; }
+  else { dw = w; dh = w / ASPECT; }
 
   canvas.style.width = dw + "px";
   canvas.style.height = dh + "px";
@@ -40,22 +97,18 @@ function resizeCanvas() {
 // ===== CIRCLES =====
 const COUNT = 9;
 const MIN_R = 95, MAX_R = 170;
-
 let circles = [];
-let currentPositions = [];
 
 for (let i = 0; i < COUNT; i++) {
   const el = document.createElement("div");
   el.className = "circle";
   document.getElementById("loader").appendChild(el);
-
+  
   circles.push({
-    el,
-    tx: 0,
-    ty: 0,
+    el: el,
+    tx: 0, ty: 0,
     offset: Math.random() * Math.PI * 2
   });
-
   currentPositions.push({ x: 0, y: 0 });
 }
 
@@ -63,7 +116,6 @@ function initCircles() {
   for (let c of circles) {
     const angle = Math.random() * Math.PI * 2;
     const radius = MIN_R + Math.random() * (MAX_R - MIN_R);
-
     c.tx = Math.cos(angle) * radius;
     c.ty = Math.sin(angle) * radius;
   }
@@ -74,66 +126,53 @@ const easeOut = t => 1 - Math.pow(1 - t, 3);
 const easeIn  = t => t * t * t;
 
 // ===== LOOP =====
+let last = performance.now();
+
 function loop(now) {
-  let dt = (now - last) * 0.001;
+  const dt = (now - last) * 0.001;
   last = now;
-
-  // clamp dt (фикс лагов при фризе вкладки / загрузке wasm)
-  if (dt > 0.033) dt = 0.033;
-
   t += dt;
 
   const globalTime = now * 0.002;
 
-  // ===== PHASE LOGIC =====
-
-  if (phase === "out" && t > 1.2) {
+  // === PHASE MANAGEMENT ===
+  if (phase === "out" && t > 1.25) {
     phase = "hover";
     t = 0;
   }
 
-  if (phase === "hover") {
-    if (unityReady && !returnStarted) {
-      returnStarted = true;
-
-      // маленькая задержка чтобы не было резкого старта
-      setTimeout(() => {
-        phase = "in";
-        t = 0;
-      }, 150);
-    }
+  // ←←← КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: сбрасываем t при старте возврата
+  if (phase === "hover" && unityReady) {
+    phase = "in";
+    t = 0;                    // важно! сбрасываем таймер
   }
 
-  if (phase === "in" && t > 1.2) {
+  if (phase === "in" && t > 1.4) {        // увеличил длительность, чтобы было видно
     phase = "bounce";
     t = 0;
   }
 
-  if (phase === "bounce" && t > 0.7) {
+  if (phase === "bounce" && t > 0.68) {
     cover.style.opacity = "0";
-
     setTimeout(() => {
       cover.style.display = "none";
       canvas.style.opacity = "1";
-      phase = "done";
-    }, 600);
+    }, 650);
   }
 
-  // ===== FLOAT =====
-  let targetFloat = (phase === "hover") ? 1.2 : 0.4;
-  floatStrength += (targetFloat - floatStrength) * 8 * dt;
+  // Float strength
+  let targetFloat = (phase === "hover") ? 1.18 : 0.45;
+  floatStrength += (targetFloat - floatStrength) * 12 * dt;
 
-  // ===== CIRCLES =====
   for (let i = 0; i < circles.length; i++) {
     const c = circles[i];
-
     let baseX = 0, baseY = 0, alpha = 1;
 
     if (phase === "out") {
-      const p = easeOut(Math.min(t / 1.2, 1));
-      baseX = c.tx * p;
-      baseY = c.ty * p;
-      alpha = p;
+      const progress = easeOut(Math.min(t / 1.2, 1));
+      baseX = c.tx * progress;
+      baseY = c.ty * progress;
+      alpha = progress;
     } 
     else if (phase === "hover") {
       baseX = c.tx;
@@ -141,51 +180,39 @@ function loop(now) {
       alpha = 1;
     } 
     else if (phase === "in") {
-      const p = 1 - easeIn(Math.min(t / 1.2, 1));
-
-      baseX = c.tx * p;
-      baseY = c.ty * p;
-
-      // красивый fade
-      alpha = p;
+      const progress = 1 - easeIn(Math.min(t / 1.4, 1));   // увеличил время
+      baseX = c.tx * progress;
+      baseY = c.ty * progress;
+      alpha = Math.max(0, progress * (1.6 - t * 1.8));     // красивый fade out
     } 
     else {
       alpha = 0;
     }
 
-    // более мягкий lerp (убирает дергание)
-    currentPositions[i].x += (baseX - currentPositions[i].x) * 0.12;
-    currentPositions[i].y += (baseY - currentPositions[i].y) * 0.12;
+    // Плавный lerp позиции (убирает рывки)
+    currentPositions[i].x += (baseX - currentPositions[i].x) * 0.22;
+    currentPositions[i].y += (baseY - currentPositions[i].y) * 0.22;
 
-    const fx = Math.sin(globalTime + c.offset) * 5;
-    const fy = Math.cos(globalTime + c.offset) * 5;
+    const fx = Math.sin(globalTime + c.offset) * 5.5;
+    const fy = Math.cos(globalTime + c.offset) * 5.5;
 
     const x = currentPositions[i].x + fx * floatStrength;
     const y = currentPositions[i].y + fy * floatStrength;
 
-    c.el.style.transform =
-      `translate(-50%, -50%) translate(${x}px, ${y}px)`;
-
+    c.el.style.transform = `translate(-50%, -50%) translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`;
     c.el.style.opacity = alpha;
   }
 
-  // ===== LOGO =====
+  // Баунс логотипа
   if (phase === "bounce") {
     let scale = 1;
+    if (t < 0.24) scale = 1 + (t / 0.24) * 0.48;
+    else if (t < 0.54) scale = 1.48 - ((t - 0.24) / 0.3) * 0.55;
+    else scale = 0.93 + ((t - 0.54) / 0.14) * 0.07;
 
-    if (t < 0.25) {
-      scale = 1 + (t / 0.25) * 0.45;
-    } else if (t < 0.55) {
-      scale = 1.45 - ((t - 0.25) / 0.3) * 0.5;
-    } else {
-      scale = 0.95 + ((t - 0.55) / 0.15) * 0.05;
-    }
-
-    logo.style.transform =
-      `translate(-50%, -50%) scale(${scale})`;
+    logo.style.transform = `translate(-50%, -50%) scale(${scale.toFixed(3)})`;
   } else {
-    logo.style.transform =
-      `translate(-50%, -50%) scale(1)`;
+    logo.style.transform = `translate(-50%, -50%) scale(1)`;
   }
 
   requestAnimationFrame(loop);
@@ -206,9 +233,9 @@ script.onload = () => {
   createUnityInstance(canvas, config, () => {})
     .then(() => {
       unityReady = true;
-      console.log("Unity ready → play return animation");
+      console.log("Unity ready → starting circle return animation");
     })
-    .catch(err => console.error(err));
+    .catch(err => console.error("Unity load error:", err));
 };
 
 document.body.appendChild(script);
@@ -219,3 +246,5 @@ resizeCanvas();
 requestAnimationFrame(loop);
 window.addEventListener("resize", resizeCanvas);
 </script>
+</body>
+</html>
