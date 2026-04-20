@@ -14,18 +14,20 @@ body { margin:0; overflow:hidden; background:#000; }
   align-items:center;
   z-index:999;
   background: radial-gradient(circle at center, rgba(30,80,180,0.25) 0%, rgba(10,20,50,0.15) 30%, rgba(0,0,0,0) 70%), #000;
-  transition: opacity 0.8s ease-out;
+  transition: opacity 0.85s ease-out;
 }
 #unity-canvas {
   position:absolute;
   background:#000;
   opacity: 0;
-  transition: opacity 0.7s ease-in;
+  transition: opacity 0.75s ease-in;
+  z-index: 1;
 }
 .loader {
   position:relative;
   width:460px;
   height:460px;
+  z-index: 2;
 }
 .logo {
   position:absolute;
@@ -37,14 +39,14 @@ body { margin:0; overflow:hidden; background:#000; }
 }
 .particle {
   position:absolute;
-  width:36px;          /* в 2 раза больше */
+  width:36px;
   height:36px;
   background:#4fc3ff;
   top:50%;
   left:50%;
   transform: translate(-50%, -50%);
   will-change: transform, opacity;
-  box-shadow: 0 0 12px #4fc3ff;
+  box-shadow: 0 0 14px #4fc3ff;
 }
 </style>
 </head>
@@ -61,18 +63,16 @@ body { margin:0; overflow:hidden; background:#000; }
 const ASPECT = 1920 / 1080;
 
 let unityReady = false;
-let phase = "out";           // out → hover → in → bounce
+let phase = "out";                    // out → hover → in → bounce
 let t = 0;
-let floatStrength = 0.4;
+let floatStrength = 0.45;
 
 // Тайминги
-const OUT_DURATION = 1.15;       // вылет из центра
-const HOVER_DELAY_AFTER_READY = 0.5;  // через 0.5 сек после готовности Unity начинаем возврат
-const MIN_HOVER_TIME = 1.0;      // минимум парения перед возвратом
-const IN_DURATION = 1.35;        // возврат в логотип
-const BOUNCE_DURATION = 0.75;
+const OUT_DURATION = 1.2;
+const IN_DURATION = 1.4;              // возврат квадратов в логотип
+const BOUNCE_DURATION = 0.65;         // более мягкий баунс
 
-const LERP_K = 16;
+const LERP_K = 17;
 
 // ===== ELEMENTS =====
 const cover = document.getElementById("loading-cover");
@@ -93,16 +93,15 @@ function resizeCanvas() {
   canvas.style.transform = "translate(-50%, -50%)";
 }
 
-// ===== PARTICLES (теперь квадраты) =====
+// ===== PARTICLES (квадраты) =====
 const COUNT = 9;
-const MIN_R = 108, MAX_R = 195;   // чуть дальше, чтобы выглядело космичнее
+const MIN_R = 110, MAX_R = 200;
 let particles = [];
 let currentPositions = [];
 
 for (let i = 0; i < COUNT; i++) {
   const el = document.createElement("div");
   el.className = "particle";
-  // Добавляем лёгкий поворот для динамики
   el.style.transformOrigin = "center";
   document.getElementById("loader").appendChild(el);
 
@@ -110,7 +109,7 @@ for (let i = 0; i < COUNT; i++) {
     el: el,
     tx: 0, ty: 0,
     offset: Math.random() * Math.PI * 2,
-    rotSpeed: (Math.random() - 0.5) * 2.8   // индивидуальная скорость вращения
+    rotSpeed: (Math.random() - 0.5) * 3.2
   });
   currentPositions.push({ x: 0, y: 0, rot: 0 });
 }
@@ -126,7 +125,6 @@ function initParticles() {
 
 // ===== EASING =====
 const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
-const easeInCubic = t => t * t * t;
 
 // ===== MAIN LOOP =====
 let last = performance.now();
@@ -135,7 +133,7 @@ function loop(now) {
   const dt = (now - last) * 0.001;
   last = now;
   t += dt;
-  const globalTime = now * 0.0018;   // чуть медленнее для космического ощущения
+  const globalTime = now * 0.0019;
 
   // ===================== PHASE MANAGEMENT =====================
   if (phase === "out" && t > OUT_DURATION) {
@@ -143,8 +141,9 @@ function loop(now) {
     t = 0;
   }
 
-  // Возврат начинается через 0.5 сек после готовности Unity
-  if (phase === "hover" && unityReady && t >= HOVER_DELAY_AFTER_READY) {
+  // ←←← КЛЮЧЕВОЕ ИЗМЕНЕНИЕ:
+  // Как только Unity готова — сразу переходим к возврату квадратов
+  if (phase === "hover" && unityReady) {
     phase = "in";
     t = 0;
   }
@@ -159,14 +158,14 @@ function loop(now) {
     setTimeout(() => {
       cover.style.display = "none";
       canvas.style.opacity = "1";
-    }, 720);
+    }, 750);
   }
 
-  // Float strength (лёгкое парение как в космосе)
-  const targetFloat = (phase === "hover") ? 1.25 : 0.42;
-  floatStrength += (targetFloat - floatStrength) * 10 * dt;
+  // Float strength (космическое парение)
+  const targetFloat = (phase === "hover" || phase === "out") ? 1.28 : 0.4;
+  floatStrength += (targetFloat - floatStrength) * 11 * dt;
 
-  // ===================== PARTICLES ANIMATION =====================
+  // ===================== PARTICLES =====================
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
     let baseX = 0, baseY = 0, alpha = 1;
@@ -175,7 +174,7 @@ function loop(now) {
       const progress = easeOutCubic(Math.min(t / OUT_DURATION, 1));
       baseX = p.tx * progress;
       baseY = p.ty * progress;
-      alpha = progress * 0.95;
+      alpha = progress;
     }
     else if (phase === "hover") {
       baseX = p.tx;
@@ -187,38 +186,35 @@ function loop(now) {
       const progress = 1 - easeOutCubic(pVal);   // резкий старт возврата
       baseX = p.tx * progress;
       baseY = p.ty * progress;
-      alpha = Math.max(0, (1 - pVal) * 2.2);
+      alpha = Math.max(0, (1 - pVal) * 2.4);
     }
     else {
       alpha = 0;
     }
 
-    // Плавный lerp
     const lerpFactor = 1 - Math.exp(-LERP_K * dt);
     currentPositions[i].x += (baseX - currentPositions[i].x) * lerpFactor;
     currentPositions[i].y += (baseY - currentPositions[i].y) * lerpFactor;
 
-    // Парение + лёгкое вращение (эффект космоса)
-    const fx = Math.sin(globalTime * 1.8 + p.offset) * 6.5;
-    const fy = Math.cos(globalTime * 1.6 + p.offset * 1.3) * 6.5;
+    const fx = Math.sin(globalTime * 1.7 + p.offset) * 7;
+    const fy = Math.cos(globalTime * 1.55 + p.offset * 1.4) * 6.8;
 
     const x = currentPositions[i].x + fx * floatStrength;
     const y = currentPositions[i].y + fy * floatStrength;
 
-    // Вращение квадратов
-    currentPositions[i].rot += p.rotSpeed * dt * 35;
+    currentPositions[i].rot += p.rotSpeed * dt * 38;
     const rot = currentPositions[i].rot;
 
     p.el.style.transform = `translate(-50%, -50%) translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) rotate(${rot.toFixed(1)}deg)`;
     p.el.style.opacity = alpha.toFixed(3);
   }
 
-  // ===================== LOGO BOUNCE =====================
+  // ===================== LOGO BOUNCE (сделал чуть мягче) =====================
   if (phase === "bounce") {
     let scale = 1;
-    if (t < 0.23) scale = 1 + (t / 0.23) * 0.52;
-    else if (t < 0.52) scale = 1.52 - ((t - 0.23) / 0.29) * 0.57;
-    else scale = 0.95 + ((t - 0.52) / 0.15) * 0.08;
+    if (t < 0.22) scale = 1 + (t / 0.22) * 0.38;           // меньший подъём
+    else if (t < 0.48) scale = 1.38 - ((t - 0.22) / 0.26) * 0.43;
+    else scale = 0.95 + ((t - 0.48) / 0.14) * 0.06;
 
     logo.style.transform = `translate(-50%, -50%) scale(${scale.toFixed(3)})`;
   } else {
@@ -228,7 +224,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-// ===== UNITY LOADING =====
+// ===== UNITY LOADING (запускается сразу) =====
 const buildUrl = "Build";
 const script = document.createElement("script");
 script.src = `${buildUrl}/SC.loader.js`;
@@ -243,7 +239,7 @@ script.onload = () => {
   createUnityInstance(canvas, config, () => {})
     .then(() => {
       unityReady = true;
-      console.log("%cUnity ready → return animation will start in 0.5s", "color:#4fc3ff");
+      console.log("%cUnity ready → starting return animation immediately", "color:#4fc3ff");
     })
     .catch(err => console.error("Unity load error:", err));
 };
