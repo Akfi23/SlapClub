@@ -14,13 +14,13 @@ body { margin:0; overflow:hidden; background:#000; }
   align-items:center;
   z-index:999;
   background: radial-gradient(circle at center, rgba(30,80,180,0.25) 0%, rgba(10,20,50,0.15) 30%, rgba(0,0,0,0) 70%), #000;
-  transition: opacity 0.85s ease-out;
+  transition: opacity 0.9s ease-out;
 }
 #unity-canvas {
   position:absolute;
   background:#000;
   opacity: 0;
-  transition: opacity 0.75s ease-in;
+  transition: opacity 0.8s ease-in;
   z-index: 1;
 }
 .loader {
@@ -67,12 +67,13 @@ let phase = "out";                    // out → hover → in → bounce
 let t = 0;
 let floatStrength = 0.45;
 
-// Тайминги
+// === НОВЫЕ ТАЙМИНГИ — ГЛАВНОЕ ИСПРАВЛЕНИЕ ===
 const OUT_DURATION = 1.2;
-const IN_DURATION = 1.4;              // возврат квадратов в логотип
-const BOUNCE_DURATION = 0.65;         // более мягкий баунс
+const MIN_HOVER_TIME_AFTER_READY = 1.15;   // ←←← минимум 1.15 сек парения ПОСЛЕ того, как Unity стала ready
+const IN_DURATION = 1.45;                  // возврат квадратов — хорошо видно
+const BOUNCE_DURATION = 0.68;              // мягкий баунс
 
-const LERP_K = 17;
+const LERP_K = 18;
 
 // ===== ELEMENTS =====
 const cover = document.getElementById("loading-cover");
@@ -93,7 +94,7 @@ function resizeCanvas() {
   canvas.style.transform = "translate(-50%, -50%)";
 }
 
-// ===== PARTICLES (квадраты) =====
+// ===== PARTICLES =====
 const COUNT = 9;
 const MIN_R = 110, MAX_R = 200;
 let particles = [];
@@ -141,11 +142,12 @@ function loop(now) {
     t = 0;
   }
 
-  // ←←← КЛЮЧЕВОЕ ИЗМЕНЕНИЕ:
-  // Как только Unity готова — сразу переходим к возврату квадратов
-  if (phase === "hover" && unityReady) {
+  // ←←← КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ
+  // Переход в "in" только после того, как Unity готова И прошло минимум 1.15 сек парения
+  if (phase === "hover" && unityReady && t >= MIN_HOVER_TIME_AFTER_READY) {
     phase = "in";
     t = 0;
+    console.log("%cStarting return animation (guaranteed visible)", "color:#4fc3ff");
   }
 
   if (phase === "in" && t > IN_DURATION) {
@@ -158,10 +160,10 @@ function loop(now) {
     setTimeout(() => {
       cover.style.display = "none";
       canvas.style.opacity = "1";
-    }, 750);
+    }, 780);
   }
 
-  // Float strength (космическое парение)
+  // Float strength
   const targetFloat = (phase === "hover" || phase === "out") ? 1.28 : 0.4;
   floatStrength += (targetFloat - floatStrength) * 11 * dt;
 
@@ -183,7 +185,7 @@ function loop(now) {
     }
     else if (phase === "in") {
       const pVal = Math.min(t / IN_DURATION, 1);
-      const progress = 1 - easeOutCubic(pVal);   // резкий старт возврата
+      const progress = 1 - easeOutCubic(pVal);
       baseX = p.tx * progress;
       baseY = p.ty * progress;
       alpha = Math.max(0, (1 - pVal) * 2.4);
@@ -209,10 +211,10 @@ function loop(now) {
     p.el.style.opacity = alpha.toFixed(3);
   }
 
-  // ===================== LOGO BOUNCE (сделал чуть мягче) =====================
+  // ===================== LOGO BOUNCE (мягкий) =====================
   if (phase === "bounce") {
     let scale = 1;
-    if (t < 0.22) scale = 1 + (t / 0.22) * 0.38;           // меньший подъём
+    if (t < 0.22) scale = 1 + (t / 0.22) * 0.38;
     else if (t < 0.48) scale = 1.38 - ((t - 0.22) / 0.26) * 0.43;
     else scale = 0.95 + ((t - 0.48) / 0.14) * 0.06;
 
@@ -224,7 +226,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-// ===== UNITY LOADING (запускается сразу) =====
+// ===== UNITY LOADING =====
 const buildUrl = "Build";
 const script = document.createElement("script");
 script.src = `${buildUrl}/SC.loader.js`;
@@ -239,7 +241,7 @@ script.onload = () => {
   createUnityInstance(canvas, config, () => {})
     .then(() => {
       unityReady = true;
-      console.log("%cUnity ready → starting return animation immediately", "color:#4fc3ff");
+      console.log("%cUnity ready → will start return in " + MIN_HOVER_TIME_AFTER_READY + "s", "color:#4fc3ff");
     })
     .catch(err => console.error("Unity load error:", err));
 };
