@@ -38,12 +38,13 @@
     z-index: 2;
   }
 
+  /* Основной центральный glow */
   #center-glow {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 320px;
-    height: 320px;
+    width: 400px;
+    height: 400px;
     background: radial-gradient(circle, rgba(80, 200, 255, 0.68) 0%, rgba(80, 200, 255, 0.14) 48%, transparent 78%);
     transform: translate(-50%, -50%);
     pointer-events: none;
@@ -52,12 +53,13 @@
     will-change: transform, opacity;
   }
 
+  /* Второй маленький динамический glow */
   #secondary-glow {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 210px;
-    height: 210px;
+    width: 300px;
+    height: 300px;
     background: radial-gradient(circle, rgba(120, 225, 255, 0.75) 0%, rgba(100, 210, 255, 0.18) 42%, transparent 72%);
     transform: translate(-50%, -50%);
     pointer-events: none;
@@ -76,20 +78,16 @@
     will-change: transform;
   }
 
-  /* Перекрашивание белых иконок в яркий голубой #4fc3ff */
+  /* Иконки вместо квадратов */
   .particle {
     position: absolute;
-    width: 48px;
-    height: 48px;
+    width: 80px;               /* чуть больше, чем было у квадратов */
+    height: 80px;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     will-change: transform, opacity;
-    filter: 
-      brightness(0) invert(1)          /* сначала делаем белыми */
-      hue-rotate(195deg)               /* поворачиваем в голубой */
-      saturate(2.8)                    /* усиливаем насыщенность */
-      brightness(1.15);                /* делаем ярче */
+    filter: brightness(1.15) drop-shadow(0 0 14px #4fc3ff);   /* свечение + цвет */
     z-index: 0;
   }
 </style>
@@ -140,7 +138,7 @@ function resizeCanvas() {
 
   const scaleX = (screenW * 0.92) / DESIGN_SIZE;
   const scaleY = (screenH * 0.92) / DESIGN_SIZE;
-  const loaderScale = Math.min(scaleX, scaleY, 1.05);
+  const loaderScale = Math.min(scaleX, scaleY, 1.05);   // чуть позволяем расти на больших экранах
 
   loader.style.transform = `scale(${loaderScale.toFixed(4)})`;
 
@@ -167,16 +165,16 @@ function resizeCanvas() {
   canvas.style.transform = "translate(-50%, -50%)";
 }
 
-// ===== ИКОНКИ =====
+// ===== PARTICLES → ИКОНКИ 1.png ... 9.png =====
 const COUNT = 9;
-const MIN_R = 115, MAX_R = 205;
+const MIN_R = 115, MAX_R = 205;   // немного увеличил радиус для красивого разлёта
 let particles = [];
 let currentPositions = [];
 
 for (let i = 1; i <= COUNT; i++) {
   const el = document.createElement("img");
   el.className = "particle";
-  el.src = `${i}.png`;
+  el.src = `${i}.png`;                    // 1.png, 2.png ... 9.png
   el.alt = `icon ${i}`;
   document.getElementById("loader").appendChild(el);
 
@@ -232,6 +230,7 @@ function loop(now) {
   const targetFloat = (phase === "hover" || phase === "out") ? 1.28 : 0.4;
   floatStrength += (targetFloat - floatStrength) * 11 * dt;
 
+  // Анимация иконок
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
     let baseX = 0, baseY = 0, alpha = 1;
@@ -272,6 +271,7 @@ function loop(now) {
     p.el.style.opacity = alpha.toFixed(3);
   }
 
+  // Glows
   const glowScale = 0.96 + glowPulse * 0.08;
   const glowOpacity = 0.68 + glowPulse * 0.22;
   centerGlow.style.transform = `translate(-50%, -50%) scale(${glowScale.toFixed(3)})`;
@@ -280,6 +280,7 @@ function loop(now) {
   const secScale = 0.92 + glowPulse * 0.12;
   secondaryGlow.style.transform = `translate(-50%, -50%) translate(${secondaryOffsetX.toFixed(1)}px, ${secondaryOffsetY.toFixed(1)}px) scale(${secScale.toFixed(3)})`;
 
+  // Logo bounce
   if (phase === "bounce") {
     let scale = 1;
     if (t < 0.22) scale = 1 + (t / 0.22) * 0.38;
