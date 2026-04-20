@@ -2,52 +2,63 @@
 <html lang="en-us">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Slap Club</title>
 <style>
-body { margin:0; overflow:hidden; background:#000; }
-#loading-cover {
-  position:fixed;
-  inset:0;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  z-index:999;
-  background: radial-gradient(circle at center, rgba(30,80,180,0.25) 0%, rgba(10,20,50,0.15) 30%, rgba(0,0,0,0) 70%), #000;
-  transition: opacity 0.9s ease-out;
-}
-#unity-canvas {
-  position:absolute;
-  background:#000;
-  opacity: 0;
-  transition: opacity 0.8s ease-in;
-  z-index: 1;
-}
-.loader {
-  position:relative;
-  width:460px;
-  height:460px;
-  z-index: 2;
-}
-.logo {
-  position:absolute;
-  width:180px;
-  top:50%;
-  left:50%;
-  transform: translate(-50%, -50%) scale(1);
-  will-change: transform;
-}
-.particle {
-  position:absolute;
-  width:36px;
-  height:36px;
-  background:#4fc3ff;
-  top:50%;
-  left:50%;
-  transform: translate(-50%, -50%);
-  will-change: transform, opacity;
-  box-shadow: 0 0 14px #4fc3ff;
-}
+  body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #000;
+    touch-action: none; /* улучшает поведение на тач-устройствах */
+  }
+
+  #unity-canvas {
+    position: absolute;
+    background: #000;
+    opacity: 0;
+    transition: opacity 0.8s ease-in;
+    image-rendering: crisp-edges; /* помогает на мобильных */
+  }
+
+  #loading-cover {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+    background: radial-gradient(circle at center, rgba(30,80,180,0.25) 0%, rgba(10,20,50,0.15) 30%, rgba(0,0,0,0) 70%), #000;
+    transition: opacity 0.9s ease-out;
+  }
+
+  .loader {
+    position: relative;
+    width: 460px;
+    height: 460px;
+    z-index: 2;
+  }
+
+  .logo {
+    position: absolute;
+    width: 180px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    will-change: transform;
+  }
+
+  .particle {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    background: #4fc3ff;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    will-change: transform, opacity;
+    box-shadow: 0 0 14px #4fc3ff;
+  }
 </style>
 </head>
 <body>
@@ -60,18 +71,17 @@ body { margin:0; overflow:hidden; background:#000; }
 
 <script>
 // ===== CONFIG =====
-const ASPECT = 1920 / 1080;
+const TARGET_ASPECT = 1920 / 1080;   // строго 16:9
 
 let unityReady = false;
-let phase = "out";                    // out → hover → in → bounce
+let phase = "out";
 let t = 0;
 let floatStrength = 0.45;
 
-// === НОВЫЕ ТАЙМИНГИ — ГЛАВНОЕ ИСПРАВЛЕНИЕ ===
 const OUT_DURATION = 1.2;
-const MIN_HOVER_TIME_AFTER_READY = 1.15;   // ←←← минимум 1.15 сек парения ПОСЛЕ того, как Unity стала ready
-const IN_DURATION = 1.45;                  // возврат квадратов — хорошо видно
-const BOUNCE_DURATION = 0.68;              // мягкий баунс
+const MIN_HOVER_TIME_AFTER_READY = 1.15;
+const IN_DURATION = 1.45;
+const BOUNCE_DURATION = 0.68;
 
 const LERP_K = 18;
 
@@ -80,21 +90,40 @@ const cover = document.getElementById("loading-cover");
 const canvas = document.getElementById("unity-canvas");
 const logo = document.getElementById("logo");
 
-// ===== RESIZE =====
+// ===== УЛУЧШЕННЫЙ RESIZE — главное исправление =====
 function resizeCanvas() {
-  const w = innerWidth, h = innerHeight;
-  let dw = w, dh = h;
-  if (w / h > ASPECT) dh = w / ASPECT;
-  else dw = h * ASPECT;
+  const screenW = window.innerWidth;
+  const screenH = window.innerHeight;
 
-  canvas.style.width = dw + "px";
-  canvas.style.height = dh + "px";
+  let canvasW, canvasH;
+
+  // Вычисляем максимальный размер, который помещается при соотношении 16:9
+  if (screenW / screenH > TARGET_ASPECT) {
+    // Экран шире → ограничиваем по высоте (pillarbox — чёрные полосы слева/справа)
+    canvasH = screenH;
+    canvasW = Math.floor(screenH * TARGET_ASPECT);
+  } else {
+    // Экран уже → ограничиваем по ширине (letterbox — чёрные полосы сверху/снизу)
+    canvasW = screenW;
+    canvasH = Math.floor(screenW / TARGET_ASPECT);
+  }
+
+  // Применяем CSS-размер (видимый размер)
+  canvas.style.width = canvasW + "px";
+  canvas.style.height = canvasH + "px";
+
+  // Центрируем
   canvas.style.left = "50%";
   canvas.style.top = "50%";
   canvas.style.transform = "translate(-50%, -50%)";
+
+  // Важно для Unity: устанавливаем реальное разрешение рендера
+  // Это решает проблему гигантского размера на мобильных
+  canvas.width = canvasW;
+  canvas.height = canvasH;
 }
 
-// ===== PARTICLES =====
+// ===== PARTICLES (оставил как было, только мелкие улучшения) =====
 const COUNT = 9;
 const MIN_R = 110, MAX_R = 200;
 let particles = [];
@@ -127,7 +156,7 @@ function initParticles() {
 // ===== EASING =====
 const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
 
-// ===== MAIN LOOP =====
+// ===== MAIN LOOP (без изменений по анимации) =====
 let last = performance.now();
 
 function loop(now) {
@@ -136,18 +165,14 @@ function loop(now) {
   t += dt;
   const globalTime = now * 0.0019;
 
-  // ===================== PHASE MANAGEMENT =====================
   if (phase === "out" && t > OUT_DURATION) {
     phase = "hover";
     t = 0;
   }
 
-  // ←←← КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ
-  // Переход в "in" только после того, как Unity готова И прошло минимум 1.15 сек парения
   if (phase === "hover" && unityReady && t >= MIN_HOVER_TIME_AFTER_READY) {
     phase = "in";
     t = 0;
-    console.log("%cStarting return animation (guaranteed visible)", "color:#4fc3ff");
   }
 
   if (phase === "in" && t > IN_DURATION) {
@@ -163,11 +188,9 @@ function loop(now) {
     }, 780);
   }
 
-  // Float strength
   const targetFloat = (phase === "hover" || phase === "out") ? 1.28 : 0.4;
   floatStrength += (targetFloat - floatStrength) * 11 * dt;
 
-  // ===================== PARTICLES =====================
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
     let baseX = 0, baseY = 0, alpha = 1;
@@ -177,20 +200,17 @@ function loop(now) {
       baseX = p.tx * progress;
       baseY = p.ty * progress;
       alpha = progress;
-    }
-    else if (phase === "hover") {
+    } else if (phase === "hover") {
       baseX = p.tx;
       baseY = p.ty;
       alpha = 1;
-    }
-    else if (phase === "in") {
+    } else if (phase === "in") {
       const pVal = Math.min(t / IN_DURATION, 1);
       const progress = 1 - easeOutCubic(pVal);
       baseX = p.tx * progress;
       baseY = p.ty * progress;
       alpha = Math.max(0, (1 - pVal) * 2.4);
-    }
-    else {
+    } else {
       alpha = 0;
     }
 
@@ -211,7 +231,7 @@ function loop(now) {
     p.el.style.opacity = alpha.toFixed(3);
   }
 
-  // ===================== LOGO BOUNCE (мягкий) =====================
+  // Лёгкий баунс логотипа
   if (phase === "bounce") {
     let scale = 1;
     if (t < 0.22) scale = 1 + (t / 0.22) * 0.38;
@@ -234,14 +254,15 @@ script.src = `${buildUrl}/SC.loader.js`;
 const config = {
   dataUrl: `${buildUrl}/SC.data.unityweb`,
   frameworkUrl: `${buildUrl}/SC.framework.js.unityweb`,
-  codeUrl: `${buildUrl}/SC.wasm.unityweb`
+  codeUrl: `${buildUrl}/SC.wasm.unityweb`,
+  // matchWebGLToCanvasSize оставляем по умолчанию true — Unity будет подстраиваться под canvas.width/height
 };
 
 script.onload = () => {
   createUnityInstance(canvas, config, () => {})
     .then(() => {
       unityReady = true;
-      console.log("%cUnity ready → will start return in " + MIN_HOVER_TIME_AFTER_READY + "s", "color:#4fc3ff");
+      console.log("%cUnity ready", "color:#4fc3ff");
     })
     .catch(err => console.error("Unity load error:", err));
 };
@@ -252,7 +273,11 @@ document.body.appendChild(script);
 initParticles();
 resizeCanvas();
 requestAnimationFrame(loop);
+
 window.addEventListener("resize", resizeCanvas);
+window.addEventListener("orientationchange", () => {
+  setTimeout(resizeCanvas, 100); // небольшая задержка после смены ориентации
+});
 </script>
 </body>
 </html>
