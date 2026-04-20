@@ -38,13 +38,12 @@
     z-index: 2;
   }
 
-  /* Основной центральный glow */
   #center-glow {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 400px;
-    height: 400px;
+    width: 320px;
+    height: 320px;
     background: radial-gradient(circle, rgba(80, 200, 255, 0.68) 0%, rgba(80, 200, 255, 0.14) 48%, transparent 78%);
     transform: translate(-50%, -50%);
     pointer-events: none;
@@ -53,13 +52,12 @@
     will-change: transform, opacity;
   }
 
-  /* Второй маленький динамический glow */
   #secondary-glow {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 300px;
-    height: 300px;
+    width: 210px;
+    height: 210px;
     background: radial-gradient(circle, rgba(120, 225, 255, 0.75) 0%, rgba(100, 210, 255, 0.18) 42%, transparent 72%);
     transform: translate(-50%, -50%);
     pointer-events: none;
@@ -78,20 +76,20 @@
     will-change: transform;
   }
 
-  /* Иконки — перекрашиваем в цвет #4fc3ff */
+  /* Перекрашивание белых иконок в яркий голубой #4fc3ff */
   .particle {
     position: absolute;
-    width: 80px;
-    height: 80px;
+    width: 48px;
+    height: 48px;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     will-change: transform, opacity;
     filter: 
-      brightness(1.25) 
-      saturate(1.8) 
-      hue-rotate(195deg)     /* перекрашивает белый в голубой #4fc3ff */
-      drop-shadow(0 0 16px #4fc3ff);
+      brightness(0) invert(1)          /* сначала делаем белыми */
+      hue-rotate(195deg)               /* поворачиваем в голубой */
+      saturate(2.8)                    /* усиливаем насыщенность */
+      brightness(1.15);                /* делаем ярче */
     z-index: 0;
   }
 </style>
@@ -169,7 +167,7 @@ function resizeCanvas() {
   canvas.style.transform = "translate(-50%, -50%)";
 }
 
-// ===== ИКОНКИ 1.png ... 9.png =====
+// ===== ИКОНКИ =====
 const COUNT = 9;
 const MIN_R = 115, MAX_R = 205;
 let particles = [];
@@ -274,7 +272,6 @@ function loop(now) {
     p.el.style.opacity = alpha.toFixed(3);
   }
 
-  // Glows
   const glowScale = 0.96 + glowPulse * 0.08;
   const glowOpacity = 0.68 + glowPulse * 0.22;
   centerGlow.style.transform = `translate(-50%, -50%) scale(${glowScale.toFixed(3)})`;
@@ -283,7 +280,6 @@ function loop(now) {
   const secScale = 0.92 + glowPulse * 0.12;
   secondaryGlow.style.transform = `translate(-50%, -50%) translate(${secondaryOffsetX.toFixed(1)}px, ${secondaryOffsetY.toFixed(1)}px) scale(${secScale.toFixed(3)})`;
 
-  // Logo bounce
   if (phase === "bounce") {
     let scale = 1;
     if (t < 0.22) scale = 1 + (t / 0.22) * 0.38;
