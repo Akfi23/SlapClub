@@ -165,16 +165,15 @@ function resizeCanvas() {
   canvas.style.transform = "translate(-50%, -50%)";
 }
 
-// ===== PARTICLES → ИКОНКИ 1.png ... 9.png =====
 const COUNT = 9;
-const MIN_R = 115, MAX_R = 205;   // немного увеличил радиус для красивого разлёта
+const MIN_R = 115, MAX_R = 205; 
 let particles = [];
 let currentPositions = [];
 
 for (let i = 1; i <= COUNT; i++) {
   const el = document.createElement("img");
   el.className = "particle";
-  el.src = `${i}.png`;                    // 1.png, 2.png ... 9.png
+  el.src = `${i}.png`;             
   el.alt = `icon ${i}`;
   document.getElementById("loader").appendChild(el);
 
@@ -294,7 +293,6 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-// ===== UNITY LOADING =====
 const buildUrl = "Build";
 const script = document.createElement("script");
 script.src = `${buildUrl}/SC.loader.js`;
