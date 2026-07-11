@@ -12,14 +12,12 @@
     background: #000;
     touch-action: none;
   }
-
   #unity-canvas {
     position: absolute;
     background: #000;
     opacity: 0;
     transition: opacity 0.8s ease-in;
   }
-
   #loading-cover {
     position: fixed;
     inset: 0;
@@ -29,7 +27,6 @@
     z-index: 999;
     background: radial-gradient(circle at center, rgba(30,80,180,0.25) 0%, rgba(10,20,50,0.15) 30%, rgba(0,0,0,0) 70%), #000;
   }
-
   .loader {
     position: relative;
     width: 460px;
@@ -37,7 +34,6 @@
     transform-origin: center center;
     z-index: 2;
   }
-
   /* Основной центральный glow */
   #center-glow {
     position: absolute;
@@ -52,7 +48,6 @@
     filter: blur(28px);
     will-change: transform, opacity;
   }
-
   /* Второй маленький динамический glow */
   #secondary-glow {
     position: absolute;
@@ -67,7 +62,6 @@
     filter: blur(22px);
     will-change: transform, opacity;
   }
-
   .logo {
     position: absolute;
     width: 180px;
@@ -77,23 +71,62 @@
     z-index: 3;
     will-change: transform;
   }
-
   /* Иконки вместо квадратов */
   .particle {
     position: absolute;
-    width: 80px;               /* чуть больше, чем было у квадратов */
+    width: 80px;
     height: 80px;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     will-change: transform, opacity;
-    filter: brightness(1.15) drop-shadow(0 0 14px #4fc3ff);   /* свечение + цвет */
+    filter: brightness(1.15) drop-shadow(0 0 14px #4fc3ff);
     z-index: 0;
+  }
+
+  /* === НОВЫЙ ОВЕРЛЕЙ ДЛЯ ПОРТРЕТНОГО РЕЖИМА === */
+  #orientation-warning {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.95);
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    color: #fff;
+    font-family: system-ui, -apple-system, sans-serif;
+    text-align: center;
+    padding: 20px;
+    gap: 20px;
+  }
+  #orientation-warning.show {
+    display: flex;
+  }
+  #orientation-warning .icon {
+    font-size: 120px;
+    margin-bottom: 10px;
+    animation: rotateIcon 2s linear infinite;
+  }
+  #orientation-warning h2 {
+    font-size: 28px;
+    margin: 0;
+    color: #4fc3ff;
+  }
+  #orientation-warning p {
+    font-size: 20px;
+    max-width: 320px;
+    opacity: 0.9;
+  }
+  @keyframes rotateIcon {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 </style>
 </head>
 <body>
 <canvas id="unity-canvas"></canvas>
+
 <div id="loading-cover">
   <div class="loader" id="loader">
     <div id="center-glow"></div>
@@ -102,11 +135,17 @@
   </div>
 </div>
 
+<!-- Новый оверлей поворота экрана -->
+<div id="orientation-warning">
+  <div class="icon">📱</div>
+  <h2>Поверните экран</h2>
+  <p>Для комфортной игры игра предназначена только для горизонтальной ориентации</p>
+</div>
+
 <script>
 // ===== CONFIG =====
 const TARGET_ASPECT = 1920 / 1080;
 const DESIGN_SIZE = 460;
-
 let unityReady = false;
 let phase = "out";
 let t = 0;
@@ -114,12 +153,10 @@ let floatStrength = 0.45;
 let glowPulse = 0;
 let secondaryOffsetX = 0;
 let secondaryOffsetY = 0;
-
 const OUT_DURATION = 1.2;
 const MIN_HOVER_TIME_AFTER_READY = 1.15;
 const IN_DURATION = 1.45;
 const BOUNCE_DURATION = 0.68;
-
 const LERP_K = 18;
 
 // ===== ELEMENTS =====
@@ -129,17 +166,31 @@ const loader = document.getElementById("loader");
 const logo = document.getElementById("logo");
 const centerGlow = document.getElementById("center-glow");
 const secondaryGlow = document.getElementById("secondary-glow");
+const orientationWarning = document.getElementById("orientation-warning");
+
+// ===== ORIENTATION CHECK =====
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth * 1.05; // небольшой запас
+  
+  if (isPortrait) {
+    orientationWarning.classList.add("show");
+    canvas.style.opacity = "0.15"; // слегка затемняем игру
+  } else {
+    orientationWarning.classList.remove("show");
+    if (unityReady) {
+      canvas.style.opacity = "1";
+    }
+  }
+}
 
 // ===== RESIZE =====
 function resizeCanvas() {
   const screenW = window.innerWidth;
   const screenH = window.innerHeight;
   const dpr = window.devicePixelRatio || 1;
-
   const scaleX = (screenW * 0.92) / DESIGN_SIZE;
   const scaleY = (screenH * 0.92) / DESIGN_SIZE;
-  const loaderScale = Math.min(scaleX, scaleY, 1.05);   // чуть позволяем расти на больших экранах
-
+  const loaderScale = Math.min(scaleX, scaleY, 1.05);
   loader.style.transform = `scale(${loaderScale.toFixed(4)})`;
 
   let cssW, cssH;
@@ -150,43 +201,39 @@ function resizeCanvas() {
     cssW = screenW;
     cssH = Math.floor(screenW / TARGET_ASPECT);
   }
-
   canvas.style.width = cssW + "px";
   canvas.style.height = cssH + "px";
-
   const renderW = Math.floor(cssW * dpr);
   const renderH = Math.floor(cssH * dpr);
-
   canvas.width = renderW;
   canvas.height = renderH;
-
   canvas.style.left = "50%";
   canvas.style.top = "50%";
   canvas.style.transform = "translate(-50%, -50%)";
+
+  checkOrientation(); // проверяем ориентацию при каждом ресайзе
 }
 
+// ===== PARTICLES (без изменений) =====
 const COUNT = 9;
-const MIN_R = 115, MAX_R = 205; 
+const MIN_R = 115, MAX_R = 205;
 let particles = [];
 let currentPositions = [];
-
 for (let i = 1; i <= COUNT; i++) {
   const el = document.createElement("img");
   el.className = "particle";
-  el.src = `${i}.png`;             
+  el.src = `${i}.png`;
   el.alt = `icon ${i}`;
   document.getElementById("loader").appendChild(el);
-
   particles.push({
     el: el,
-    tx: 0, 
+    tx: 0,
     ty: 0,
     offset: Math.random() * Math.PI * 2,
     rotSpeed: (Math.random() - 0.5) * 3.0
   });
   currentPositions.push({ x: 0, y: 0, rot: 0 });
 }
-
 function initParticles() {
   for (let p of particles) {
     const angle = Math.random() * Math.PI * 2;
@@ -195,20 +242,16 @@ function initParticles() {
     p.ty = Math.sin(angle) * radius;
   }
 }
-
 const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
 
 // ===== MAIN LOOP =====
 let last = performance.now();
-
 function loop(now) {
   const dt = (now - last) * 0.001;
   last = now;
   t += dt;
   const globalTime = now * 0.0019;
-
   glowPulse = (Math.sin(globalTime * 1.8) + 1) * 0.5;
-
   secondaryOffsetX = Math.sin(globalTime * 0.85) * 38 + Math.cos(globalTime * 1.35) * 22;
   secondaryOffsetY = Math.cos(globalTime * 0.95) * 34 + Math.sin(globalTime * 1.1) * 19;
 
@@ -233,7 +276,6 @@ function loop(now) {
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
     let baseX = 0, baseY = 0, alpha = 1;
-
     if (phase === "out") {
       const progress = easeOutCubic(Math.min(t / OUT_DURATION, 1));
       baseX = p.tx * progress;
@@ -259,7 +301,6 @@ function loop(now) {
 
     const fx = Math.sin(globalTime * 1.7 + p.offset) * 7;
     const fy = Math.cos(globalTime * 1.55 + p.offset * 1.4) * 6.8;
-
     const x = currentPositions[i].x + fx * floatStrength;
     const y = currentPositions[i].y + fy * floatStrength;
 
@@ -293,10 +334,10 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
+// ===== UNITY LOADING =====
 const buildUrl = "Build";
 const script = document.createElement("script");
 script.src = `${buildUrl}/SC.loader.js`;
-
 const config = {
   dataUrl: `${buildUrl}/SC.data.unityweb`,
   frameworkUrl: `${buildUrl}/SC.framework.js.unityweb`,
@@ -308,10 +349,10 @@ script.onload = () => {
     .then(() => {
       unityReady = true;
       console.log("%cGame Ready", "color:#4fc3ff");
+      checkOrientation(); // проверяем сразу после загрузки
     })
     .catch(err => console.error("Unity load error:", err));
 };
-
 document.body.appendChild(script);
 
 // ===== START =====
@@ -320,7 +361,12 @@ resizeCanvas();
 requestAnimationFrame(loop);
 
 window.addEventListener("resize", resizeCanvas);
-window.addEventListener("orientationchange", () => setTimeout(resizeCanvas, 150));
+window.addEventListener("orientationchange", () => {
+  setTimeout(resizeCanvas, 200); // чуть больше задержка для надёжности
+});
+
+// Initial check
+setTimeout(checkOrientation, 300);
 </script>
 </body>
 </html>
