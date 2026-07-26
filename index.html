@@ -219,14 +219,36 @@ function resizeCanvas() {
   const loaderScale = Math.min(scaleX, scaleY, 1.05);
   loader.style.transform = `scale(${loaderScale.toFixed(4)})`;
 
-  let cssW, cssH;
-  if (screenW / screenH > TARGET_ASPECT) {
+  // let cssW, cssH;
+  // if (screenW / screenH > TARGET_ASPECT) {
+  //   cssH = screenH;
+  //   cssW = Math.floor(screenH * TARGET_ASPECT);
+  // } else {
+  //   cssW = screenW;
+  //   cssH = Math.floor(screenW / TARGET_ASPECT);
+  // }
+
+const isPortrait = screenH > screenW;
+
+// 16:9 для landscape
+// 9:16 для portrait
+const targetAspect = isPortrait
+    ? 1080 / 1920
+    : 1920 / 1080;
+
+let cssW, cssH;
+
+if (screenW / screenH > TARGET_ASPECT)
+{
     cssH = screenH;
-    cssW = Math.floor(screenH * TARGET_ASPECT);
-  } else {
+    cssW = Math.floor(cssH * TARGET_ASPECT);
+}
+else
+{
     cssW = screenW;
-    cssH = Math.floor(screenW / TARGET_ASPECT);
-  }
+    cssH = Math.floor(cssW / TARGET_ASPECT);
+}
+  
   canvas.style.width = cssW + "px";
   canvas.style.height = cssH + "px";
   const renderW = Math.floor(cssW * dpr);
