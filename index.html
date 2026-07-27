@@ -238,15 +238,15 @@ const targetAspect = isPortrait
 
 let cssW, cssH;
 
-if (screenW / screenH > TARGET_ASPECT)
+if (screenW / screenH > targetAspect)
 {
     cssH = screenH;
-    cssW = Math.floor(cssH * TARGET_ASPECT);
+    cssW = Math.floor(cssH * targetAspect);
 }
 else
 {
     cssW = screenW;
-    cssH = Math.floor(cssW / TARGET_ASPECT);
+    cssH = Math.floor(cssW / targetAspect);
 }
   
   canvas.style.width = cssW + "px";
