@@ -198,15 +198,15 @@ function stopPhoneRotation() {
 function checkOrientation() {
   const isPortrait = window.innerHeight > window.innerWidth * 1.05;
 
-  if (isPortrait) {
-    orientationWarning.classList.add("show");
-    canvas.style.opacity = "0.15";
-    startPhoneRotation();
-  } else {
-    orientationWarning.classList.remove("show");
-    canvas.style.opacity = unityReady ? "1" : "0";
-    stopPhoneRotation();
-  }
+  // if (isPortrait) {
+  //   orientationWarning.classList.add("show");
+  //   canvas.style.opacity = "0.15";
+  //   startPhoneRotation();
+  // } else {
+  //   orientationWarning.classList.remove("show");
+  //   canvas.style.opacity = unityReady ? "1" : "0";
+  //   stopPhoneRotation();
+  // }
 }
 
 // ===== RESIZE =====
